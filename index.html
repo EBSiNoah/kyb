@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>김영빈 - 포트폴리오</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap">
+    <style>
+        /* 부드러운 스크롤 */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #eef2f5 0%, #dbe3eb 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 100px; /* 상단 고정 바 높이만큼 여백 부여 */
+            padding-bottom: 60px;
+            padding-left: 20px;
+            padding-right: 20px;
+            color: #333;
+        }
+
+        /* ---------------------------------------------------- */
+        /* 0. 상단 고정 네비게이션 바 (Fixed Navbar) */
+        /* ---------------------------------------------------- */
+        .fixed-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .navbar-content {
+            max-width: 960px;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1e3a8a;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 12px;
+            list-style: none;
+        }
+
+        .nav-menu button {
+            background: rgba(239, 246, 255, 0.8);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+
+        .nav-menu button:hover {
+            background: #2563eb;
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+        }
+
+        .nav-menu button:hover i {
+            color: #ffffff;
+        }
+
+        /* ---------------------------------------------------- */
+        /* 메인 상단 화면 컨테이너 (자기소개, 이력, 목차) */
+        /* ---------------------------------------------------- */
+        .portfolio-container {
+            display: flex;
+            gap: 30px;
+            max-width: 960px;
+            width: 100%;
+            margin-bottom: 60px;
+            scroll-margin-top: 100px; /* 홈 위치 스크롤 마진 */
+        }
+
+        /* 좌측 컬럼 */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            flex: 1;
+        }
+
+        /* 1. 자기소개 카드 (다크 모던) */
+        .intro-card {
+            background: linear-gradient(145deg, #1e2229, #14171c);
+            border-radius: 16px;
+            padding: 28px;
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 200px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .intro-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+        }
+
+        .intro-greeting {
+            font-size: 15px;
+            color: #9ca3af;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .intro-greeting::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+        }
+
+        .intro-main-text {
+            font-size: 16px;
+            font-weight: 400;
+            color: #f3f4f6;
+            margin: auto 0;
+            padding: 15px 0;
+            line-height: 1.6;
+        }
+
+        .intro-footer {
+            font-size: 13px;
+            color: #6b7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 2. 이력 카드 (딥 그린 하이테크) */
+        .history-card {
+            background: linear-gradient(135deg, #1b382b, #12261d);
+            border-radius: 16px;
+            padding: 28px;
+            color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+            position: relative;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .corner-icon {
+            position: absolute;
+            color: rgba(52, 211, 153, 0.4);
+            font-size: 14px;
+        }
+        .corner-top-left { top: 12px; left: 12px; }
+        .corner-top-right { top: 12px; right: 12px; }
+        .corner-bottom-left { bottom: 12px; left: 12px; }
+        .corner-bottom-right { bottom: 12px; right: 12px; }
+
+        .history-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #6ee7b7;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .history-content {
+            font-size: 14px;
+            color: #d1fae5;
+            line-height: 1.6;
+        }
+
+        /* 3. 우측 목차 카드 */
+        .right-column {
+            flex: 1;
+        }
+
+        .toc-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 36px 30px;
+            height: 100%;
+            min-height: 404px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+            border: 2px solid rgba(147, 197, 253, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .toc-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: #1e3a8a;
+            letter-spacing: -0.5px;
+        }
+
+        .toc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .toc-item button {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            color: #1f2937;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.25s ease;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+        }
+
+        .toc-item button:hover {
+            background: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(59, 130, 246, 0.15);
+            border-color: #93c5fd;
+            color: #2563eb;
+        }
+
+        .toc-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toc-number {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3b82f6;
+            background: #eff6ff;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toc-icon {
+            font-size: 18px;
+            color: #64748b;
+        }
+
+        /* ---------------------------------------------------- */
+        /* 상세 내용 섹션 영역 */
+        /* ---------------------------------------------------- */
+        .sections-wrapper {
+            max-width: 960px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .content-section {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            min-height: 500px;
+            /* 상단 고정 바(70px)에 가려지지 않도록 마진 설정 */
+            scroll-margin-top: 100px;
+        }
+
+        .content-section h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .content-section p {
+            line-height: 1.8;
+            color: #475569;
+        }
+
+        @media (max-width: 768px) {
+            .portfolio-container {
+                flex-direction: column;
+            }
+            .nav-logo span {
+                display: none; /* 모바일에서 로고 텍스트 일부 숨김 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 0. 상단 고정 네비게이션 바 -->
+    <nav class="fixed-navbar">
+        <div class="navbar-content">
+            <div class="nav-logo" onclick="scrollToSection('home')">
+                <i class="fa-solid fa-code" style="color: #2563eb;"></i>
+                <span>김영빈 Portfolio</span>
+            </div>
+            <ul class="nav-menu">
+                <li>
+                    <button onclick="scrollToSection('security')">
+                        <i class="fa-solid fa-lock" style="color: #64748b;"></i>
+                        Security
+                    </button>
+                </li>
+                <li>
+                    <button onclick="scrollToSection('unreal')">
+                        <i class="fa-solid fa-gamepad" style="color: #64748b;"></i>
+                        Unreal
+                    </button>
+                </li>
+                <li>
+                    <button onclick="scrollToSection('unity')">
+                        <i class="fa-solid fa-cube" style="color: #64748b;"></i>
+                        Unity
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 상단 대시보드 영역 (home) -->
+    <div class="portfolio-container" id="home">
+        <!-- 좌측 영역 -->
+        <div class="left-column">
+            <!-- 1. 자기소개 카드 -->
+            <div class="intro-card">
+                <div class="intro-greeting">
+                    안녕하세요, 김영빈입니다.
+                </div>
+                <div class="intro-main-text" id="intro-container">
+                    불러오는 중...
+                </div>
+                <div class="intro-footer">
+                    <span>Developer Portfolio</span>
+                    <i class="fa-solid fa-code"></i>
+                </div>
+            </div>
+
+            <!-- 2. 이력 카드 -->
+            <div class="history-card">
+                <i class="fa-solid fa-magnifying-glass corner-icon corner-top-left"></i>
+                <i class="fa-solid fa-rocket corner-icon corner-top-right"></i>
+                <i class="fa-solid fa-gear corner-icon corner-bottom-left"></i>
+                <i class="fa-solid fa-terminal corner-icon corner-bottom-right"></i>
+
+                <div class="history-title">
+                    <i class="fa-solid fa-file-lines"></i>
+                    이력
+                </div>
+                <div class="history-content" id="history-container">
+                    불러오는 중...
+                </div>
+            </div>
+        </div>
+
+        <!-- 우측 영역 (목차) -->
+        <div class="right-column">
+            <div class="toc-card">
+                <div class="toc-header">
+                    <span class="toc-title">목차</span>
+                    <i class="fa-solid fa-bars-staggered" style="color: #3b82f6; font-size: 20px;"></i>
+                </div>
+                <ul class="toc-list">
+                    <li class="toc-item">
+                        <button onclick="scrollToSection('security')">
+                            <div class="toc-item-left">
+                                <span class="toc-number">1</span>
+                                <span>Security</span>
+                            </div>
+                            <i class="fa-solid fa-lock toc-icon"></i>
+                        </button>
+                    </li>
+                    <li class="toc-item">
+                        <button onclick="scrollToSection('unreal')">
+                            <div class="toc-item-left">
+                                <span class="toc-number">2</span>
+                                <span>Unreal Engine</span>
+                            </div>
+                            <i class="fa-solid fa-gamepad toc-icon"></i>
+                        </button>
+                    </li>
+                    <li class="toc-item">
+                        <button onclick="scrollToSection('unity')">
+                            <div class="toc-item-left">
+                                <span class="toc-number">3</span>
+                                <span>Unity</span>
+                            </div>
+                            <i class="fa-solid fa-cube toc-icon"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 스크롤 상세 섹션 영역 -->
+    <div class="sections-wrapper">
+        <!-- 1. Security 섹션 -->
+        <section class="content-section" id="security">
+            <h2><i class="fa-solid fa-lock" style="color: #3b82f6;"></i> 1. Security</h2>
+            <p>보안 관련 프로젝트 및 분석 연구 이력이 표시되는 영역입니다.</p>
+        </section>
+
+        <!-- 2. Unreal Engine 섹션 -->
+        <section class="content-section" id="unreal">
+            <h2><i class="fa-solid fa-gamepad" style="color: #3b82f6;"></i> 2. Unreal Engine</h2>
+            <p>언리얼 엔진 기반 게임 개발 프로젝트 및 그래픽스 연구 결과가 표시되는 영역입니다.</p>
+        </section>
+
+        <!-- 3. Unity 섹션 -->
+<!-- 3. Unity 섹션 -->
+<section class="content-section" id="unity">
+    <h2><i class="fa-solid fa-cube" style="color: #3b82f6;"></i> 3. Unity 게임 프로젝트</h2>
+    <p style="margin-bottom: 20px;">
+        Unity로 제작한 3D Action/Physics 게임 프로젝트입니다. 아래 웹 실행 창에서 직접 플레이해보실 수 있습니다.
+    </p>
+
+    <!-- 유니티 WebGL 게임 임베드 컨테이너 -->
+    <div class="game-container">
+        <iframe 
+            src="https://play.unity.com/en/games/aecb6b0a-781a-4e4f-9ea6-d1a305e1dec2/webgl" 
+            width="100%" 
+            height="600px" 
+            frameborder="0" 
+            scrolling="no" 
+            allowfullscreen="true"
+            style="border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        </iframe>
+    </div>
+
+    <!-- 외부 링크 바로가기 안내 -->
+    <div style="margin-top: 15px; text-align: right;">
+        <a href="https://play.unity.com/en/games/aecb6b0a-781a-4e4f-9ea6-d1a305e1dec2/6rma7lmy65w7j206ri0io2vnounscdquydsuzjrn7dsnbqg7jwe64uy" 
+           target="_blank" 
+           style="color: #2563eb; text-decoration: none; font-size: 14px; font-weight: 600;">
+           <i class="fa-solid fa-arrow-up-right-from-square"></i> Unity Play 공식 페이지에서 보기
+        </a>
+    </div>
+</section>
+    </div>
+
+    <!-- 스크립트 영역 -->
+    <script>
+        // 1. 외부 HTML 불러오기 함수
+        async function loadHTMLComponent(elementId, fileUrl) {
+            try {
+                const response = await fetch(fileUrl);
+                if (!response.ok) throw new Error(`파일 오류: ${response.status}`);
+                const htmlText = await response.text();
+                document.getElementById(elementId).innerHTML = htmlText;
+            } catch (error) {
+                console.error(error);
+                document.getElementById(elementId).innerText = "내용을 불러올 수 없습니다.";
+            }
+        }
+
+        // 2. 지정된 섹션 ID로 부드럽게 스크롤 이동
+        function scrollToSection(sectionId) {
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // 페이지 로드시 intro.html, history.html 불러오기
+        window.addEventListener('DOMContentLoaded', () => {
+            loadHTMLComponent('intro-container', 'intro.html');
+            loadHTMLComponent('history-container', 'history.html');
+        });
+    </script>
+</body>
+</html>
