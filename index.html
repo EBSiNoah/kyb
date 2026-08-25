@@ -478,11 +478,163 @@
 
     <!-- 하단 스크롤 상세 섹션 영역 -->
     <div class="sections-wrapper">
-        <!-- 1. Security 섹션 -->
-        <section class="content-section" id="security">
-            <h2><i class="fa-solid fa-lock" style="color: #3b82f6;"></i> 1. 자격및 증명</h2>
-            <p>보안 관련 프로젝트 및 분석 연구 이력이 표시되는 영역입니다.</p>
-        </section>
+        <!-- 1. Security & Certification 섹션 -->
+<section class="content-section" id="security">
+    <h2>
+        <i class="fa-solid fa-shield-halved" style="color: #3b82f6;"></i> 
+        1. 자격 및 증명
+    </h2>
+
+    <!-- 자격증/증명서 카드 그리드 -->
+    <div class="cert-grid">
+        <!-- 1. PCCE 성적표 -->
+        <div class="cert-card">
+            <div class="cert-icon">
+                <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
+            </div>
+            <div class="cert-info">
+                <h4>PCCE 성적 증명서</h4>
+                <p>Programmers Certified Coding Essential</p>
+            </div>
+            <a href="https://raw.githubusercontent.com/EBSiNoah/kyb/main/pcce.pdf" target="_blank" class="cert-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 보기
+            </a>
+        </div>
+
+        <!-- 2. PCCE 자격증 -->
+        <div class="cert-card">
+            <div class="cert-icon">
+                <i class="fa-solid fa-certificate" style="color: #f59e0b;"></i>
+            </div>
+            <div class="cert-info">
+                <h4>PCCE 합격 자격증</h4>
+                <p>PCCE Official Certification</p>
+            </div>
+            <a href="https://raw.githubusercontent.com/EBSiNoah/kyb/main/pcce_certification.pdf" target="_blank" class="cert-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 보기
+            </a>
+        </div>
+
+        <!-- 3. PCCP 성적표 -->
+        <div class="cert-card">
+            <div class="cert-icon">
+                <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
+            </div>
+            <div class="cert-info">
+                <h4>PCCP 성적 증명서</h4>
+                <p>Programmers Certified Coding Professional</p>
+            </div>
+            <a href="https://raw.githubusercontent.com/EBSiNoah/kyb/main/pccp.pdf" target="_blank" class="cert-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 보기
+            </a>
+        </div>
+
+        <!-- 4. PCCP 자격증 -->
+        <div class="cert-card">
+            <div class="cert-icon">
+                <i class="fa-solid fa-certificate" style="color: #f59e0b;"></i>
+            </div>
+            <div class="cert-info">
+                <h4>PCCP 인증서 (Achievement)</h4>
+                <p>PCCP Certification of Achievement</p>
+            </div>
+            <a href="https://raw.githubusercontent.com/EBSiNoah/kyb/main/PCCP_Certification_of_Achievement.pdf" target="_blank" class="cert-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 보기
+            </a>
+        </div>
+
+        <!-- 5. TOPCIT 성적표 -->
+        <div class="cert-card">
+            <div class="cert-icon">
+                <i class="fa-solid fa-award" style="color: #3b82f6;"></i>
+            </div>
+            <div class="cert-info">
+                <h4>TOPCIT 성적 증명서</h4>
+                <p>Test of Practical Competency in IT</p>
+            </div>
+            <a href="https://raw.githubusercontent.com/EBSiNoah/kyb/main/topcit.pdf" target="_blank" class="cert-btn">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> 보기
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- 자격증 카드 전용 스타일 -->
+<style>
+    .cert-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+    }
+
+    .cert-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: all 0.25s ease;
+    }
+
+    .cert-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        border-color: #93c5fd;
+        background: #ffffff;
+    }
+
+    .cert-icon {
+        font-size: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: #ffffff;
+        border-radius: 10px;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+
+    .cert-info {
+        flex: 1;
+    }
+
+    .cert-info h4 {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 2px;
+    }
+
+    .cert-info p {
+        font-size: 12px;
+        color: #64748b;
+        line-height: 1.3;
+    }
+
+    .cert-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid rgba(147, 197, 253, 0.5);
+    }
+
+    .cert-btn:hover {
+        background: #2563eb;
+        color: #ffffff;
+    }
+</style>
 
         <!-- 2. Unreal Engine 섹션 -->
 <section class="content-section" id="unreal">
