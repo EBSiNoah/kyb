@@ -869,18 +869,6 @@
 
     <!-- 스크립트 영역 -->
     <script>
-        // 1. 외부 HTML 불러오기 함수
-        async function loadHTMLComponent(elementId, fileUrl) {
-            try {
-                const response = await fetch(fileUrl);
-                if (!response.ok) throw new Error(`파일 오류: ${response.status}`);
-                const htmlText = await response.text();
-                document.getElementById(elementId).innerHTML = htmlText;
-            } catch (error) {
-                console.error(error);
-                document.getElementById(elementId).innerText = "내용을 불러올 수 없습니다.";
-            }
-        }
 
         // 2. 지정된 섹션 ID로 부드럽게 스크롤 이동
         function scrollToSection(sectionId) {
@@ -890,11 +878,6 @@
             }
         }
 
-        // 페이지 로드시 intro.html, history.html 불러오기
-        window.addEventListener('DOMContentLoaded', () => {
-            loadHTMLComponent('intro-container', 'intro.html');
-            loadHTMLComponent('history-container', 'history.html');
-        });
     </script>
 </body>
 </html>
