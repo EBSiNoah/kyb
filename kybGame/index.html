@@ -110,14 +110,14 @@ const gameState = {
 const enemies = [];
 let spawnTimer = 0;
 
-// 3-1. 플레이어 (자동 이동 & 넓어진 공격 판정)
+// 3-1. 플레이어
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT', // 'LEFT' 또는 'RIGHT'
     moveSpeed: 2.5,  // 플레이어 이동 속도
-    attackRange: 130, // 💡 공격 사거리 확대 (70 -> 130)
+    attackRange: 130, // 공격 사거리
 
     // 펀치 애니메이션 제어
     punchTimer: 0,
@@ -130,7 +130,7 @@ const player = {
         this.facing = this.facing === 'RIGHT' ? 'LEFT' : 'RIGHT';
     },
 
-    // 자동 펀치 실행 (넉넉한 판정 반영)
+    // 자동 펀치 실행
     autoPunch() {
         this.isPunching = true;
         this.punchProgress = 1;
@@ -139,7 +139,7 @@ const player = {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
 
-            // 바라보는 방향에 있고 확대된 사거리 이내인지 확인
+            // 바라보는 방향에 있고 사거리 이내인지 확인
             const isTargetInDirection = (this.facing === 'RIGHT' && enemy.x > this.x - 10) ||
                                         (this.facing === 'LEFT' && enemy.x < this.x + 10);
 
@@ -160,15 +160,13 @@ const player = {
             this.x -= this.moveSpeed;
         }
 
-        // 화면 양 끝 벽 제한
+        // 💡 화면 양 끝 벽 제한 (자동 방향 전환 제거 및 위치 고정)
         const minX = this.radius + 10;
         const maxX = CANVAS_WIDTH - this.radius - 10;
         if (this.x < minX) {
             this.x = minX;
-            this.facing = 'RIGHT';
         } else if (this.x > maxX) {
             this.x = maxX;
-            this.facing = 'LEFT';
         }
 
         // 2. 자동 펀치 타이머
@@ -192,14 +190,6 @@ const player = {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 공격 사거리 영역 반투명 표시 (디버그 & 가이드)
-        ctx.fillStyle = 'rgba(255, 234, 167, 0.15)';
-        ctx.beginPath();
-        const startAngle = this.facing === 'RIGHT' ? -Math.PI / 2 : Math.PI / 2;
-        const endAngle = this.facing === 'RIGHT' ? Math.PI / 2 : Math.PI * 1.5;
-        ctx.arc(0, 0, this.attackRange, startAngle, endAngle);
-        ctx.fill();
-
         // 플레이어 몸체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
@@ -217,7 +207,7 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 권투 글러브 (더 길게 뻗어나가도록 수정: 70px)
+        // 권투 글러브
         const punchOffset = this.punchProgress * 70;
         const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
         const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
