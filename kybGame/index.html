@@ -80,7 +80,7 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const CANVAS_WIDTH = canvas.width;   // 600px (가로 확장)
+const CANVAS_WIDTH = canvas.width;   // 600px
 const CANVAS_HEIGHT = canvas.height; // 720px
 
 // --- 2. 게임 상태 객체 (Game State) ---
@@ -93,14 +93,65 @@ const gameState = {
     isPaused: false
 };
 
-// --- 3. 기본 엔티티 객체 ---
-// 3-1. 플레이어 (확장된 화면의 중앙 하단 배치)
+// --- 3. 기본 엔티티 및 스토리지 ---
+const enemies = [];
+let spawnTimer = 0;
+
+// 3-1. 플레이어
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT', // 'LEFT' 또는 'RIGHT'
-    
+    attackRange: 130, // 타격 가능 사거리
+    isPunching: false,
+    punchProgress: 0, // 0 -> 1 -> 0 애니메이션 진행도
+    punchSpeed: 0.15,
+
+    punch(direction) {
+        this.facing = direction;
+        this.isPunching = true;
+        this.punchProgress = 1; // 펀치 동작 시작
+
+        // 타격 판정 체크
+        let hitSuccess = false;
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            const dist = Math.abs(enemy.x - this.x);
+
+            // 1. 적이 공격 방향과 동일한 쪽에 있는지 확인
+            const isTargetInDirection = (direction === 'RIGHT' && enemy.x > this.x) ||
+                                        (direction === 'LEFT' && enemy.x < this.x);
+
+            // 2. 사거리 내에 있는지 확인
+            if (isTargetInDirection && dist <= this.attackRange) {
+                // 타격 성공!
+                enemies.splice(i, 1);
+                hitSuccess = true;
+                gameState.score += 100 + gameState.combo * 10;
+                gameState.combo++;
+                break; // 한 번의 펀치로 가장 가까운 적 1마리 타격
+            }
+        }
+
+        // 허공을 쳤을 때 콤보 초기화
+        if (!hitSuccess) {
+            gameState.combo = 0;
+        }
+    },
+
+    update() {
+        // 펀치 애니메이션 복귀 처리
+        if (this.isPunching) {
+            this.punchProgress -= this.punchSpeed;
+            if (this.punchProgress <= 0) {
+                this.punchProgress = 0;
+                this.isPunching = false;
+            }
+        }
+    },
+
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
@@ -122,8 +173,11 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 권투 글러브
-        const gloveX = this.facing === 'RIGHT' ? this.radius + 12 : -this.radius - 12;
+        // 권투 글러브 (펀치 애니메이션 적용)
+        const punchOffset = this.punchProgress * 45; // 펀치 시 앞으로 이동하는 거리
+        const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 12 : -this.radius - 12;
+        const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
+
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
         ctx.arc(gloveX, 5, 16, 0, Math.PI * 2);
@@ -131,13 +185,62 @@ const player = {
         ctx.strokeStyle = '#c0392b';
         ctx.stroke();
 
+        // 사거리 가이드라인 (디버그/시각적 도움)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.attackRange, 0, Math.PI * 2);
+        ctx.stroke();
+
         ctx.restore();
     }
 };
 
-// 3-2. 배경 및 라인 렌더링
+// 3-2. 적 객체 생성자
+class Enemy {
+    constructor(side) {
+        this.side = side; // 'LEFT' 또는 'RIGHT'
+        this.radius = 25;
+        this.x = side === 'LEFT' ? -this.radius : CANVAS_WIDTH + this.radius;
+        this.y = player.y;
+        this.speed = 1.8;
+    }
+
+    update() {
+        // 플레이어 방향으로 이동
+        if (this.side === 'LEFT') {
+            this.x += this.speed;
+        } else {
+            this.x -= this.speed;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // 적 캐릭터 (분홍색 몬스터)
+        ctx.fillStyle = '#ff7675';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#d63031';
+        ctx.stroke();
+
+        // 적 눈 (플레이어를 바라봄)
+        const eyeOffset = this.side === 'LEFT' ? 8 : -8;
+        ctx.fillStyle = '#2d3436';
+        ctx.beginPath();
+        ctx.arc(eyeOffset, -5, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// 3-3. 배경 및 라인 렌더링
 function drawEnvironment() {
-    // 바닥 라인 (플레이어가 서 있는 위치)
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 6;
     ctx.beginPath();
@@ -145,27 +248,23 @@ function drawEnvironment() {
     ctx.lineTo(CANVAS_WIDTH, player.y + player.radius);
     ctx.stroke();
 
-    // 배경 하단 땅 영역
     ctx.fillStyle = '#6c5ce7';
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-3. UI 렌더링 (상단 점수, 콤보, 체력)
+// 3-4. UI 렌더링
 function drawUI() {
-    // 점수 표시 (메뉴 버튼 피해서 중앙)
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 50);
 
-    // 콤보 표시
     if (gameState.combo > 0) {
         ctx.fillStyle = '#f1c40f';
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 85);
     }
 
-    // 체력 하트 표시 (좌측 상단)
     ctx.textAlign = 'left';
     ctx.font = '24px sans-serif';
     let healthStr = '';
@@ -175,29 +274,87 @@ function drawUI() {
     ctx.fillText(healthStr, 20, 45);
 }
 
-// --- 4. 이벤트 리스너 ---
+// --- 4. 입력 처리 (Input Handler) ---
+function handleAttack(direction) {
+    if (gameState.isPaused || gameState.health <= 0) return;
+    player.punch(direction);
+}
+
+// 키보드 입력
+window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        handleAttack('LEFT');
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        handleAttack('RIGHT');
+    }
+});
+
+// 마우스/터치 입력 (화면 반쪽 기준)
+canvas.addEventListener('pointerdown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const canvasCenterX = rect.width / 2;
+
+    if (clickX < canvasCenterX) {
+        handleAttack('LEFT');
+    } else {
+        handleAttack('RIGHT');
+    }
+});
+
+// 메뉴 버튼
 const menuBtn = document.getElementById('menu-btn');
-menuBtn.addEventListener('click', () => {
+menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // 메뉴 버튼 클릭 시 공격 발생 방지
     gameState.isPaused = !gameState.isPaused;
-    console.log(gameState.isPaused ? "게임 일시정지" : "게임 재개");
 });
 
 // --- 5. 메인 게임 루프 ---
 function update() {
-    if (gameState.isPaused) return;
-    // 다음 단계에서 물리 연산 및 업데이트 작성
+    if (gameState.isPaused || gameState.health <= 0) return;
+
+    player.update();
+
+    // 임시 적 스폰 시스템 (테스트용)
+    spawnTimer++;
+    if (spawnTimer > 90) { // 약 1.5초마다 생성
+        const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
+        enemies.push(new Enemy(side));
+        spawnTimer = 0;
+    }
+
+    // 적 업데이트 및 충돌 판정
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        enemy.update();
+
+        // 플레이어 피격 충돌 체크 (몸체가 닿았을 때)
+        const dist = Math.abs(enemy.x - player.x);
+        if (dist < player.radius + enemy.radius) {
+            enemies.splice(i, 1);
+            gameState.health--;
+            gameState.combo = 0;
+
+            if (gameState.health <= 0) {
+                console.log("게임 오버!");
+            }
+        }
+    }
 }
 
 function render() {
-    // 화면 초기화
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // 환경, 플레이어, UI 그리기
     drawEnvironment();
+
+    // 적 그리기
+    enemies.forEach(enemy => enemy.draw());
+
     player.draw();
     drawUI();
 
-    // 일시정지 상태 안내
+    // 일시정지 표시
     if (gameState.isPaused) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -205,6 +362,16 @@ function render() {
         ctx.font = 'bold 36px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
+
+    // 게임 오버 표시
+    if (gameState.health <= 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillStyle = '#ff7675';
+        ctx.font = 'bold 42px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 }
 
