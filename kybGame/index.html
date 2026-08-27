@@ -110,44 +110,41 @@ const gameState = {
 const enemies = [];
 let spawnTimer = 0;
 
-// 3-1. 플레이어 (자동 이동 & 자동 펀치)
+// 3-1. 플레이어 (자동 이동 & 넓어진 공격 판정)
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT', // 'LEFT' 또는 'RIGHT'
     moveSpeed: 2.5,  // 플레이어 이동 속도
-    attackRange: 70, // 자동 펀치 사거리
+    attackRange: 130, // 💡 공격 사거리 확대 (70 -> 130)
 
     // 펀치 애니메이션 제어
     punchTimer: 0,
-    punchInterval: 20, // 펀치 주기 (프레임 단위)
+    punchInterval: 18, // 펀치 주기
     isPunching: false,
     punchProgress: 0,
 
-    // 방향 전환 함수 (스페이스바 / 클릭 시 호출)
+    // 방향 전환 함수
     turnAround() {
         this.facing = this.facing === 'RIGHT' ? 'LEFT' : 'RIGHT';
     },
 
-    // 자동 펀치 실행
+    // 자동 펀치 실행 (넉넉한 판정 반영)
     autoPunch() {
         this.isPunching = true;
         this.punchProgress = 1;
-
-        let hitSuccess = false;
 
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
 
-            // 바라보는 방향에 있고 사거리 이내인지 확인
-            const isTargetInDirection = (this.facing === 'RIGHT' && enemy.x > this.x) ||
-                                        (this.facing === 'LEFT' && enemy.x < this.x);
+            // 바라보는 방향에 있고 확대된 사거리 이내인지 확인
+            const isTargetInDirection = (this.facing === 'RIGHT' && enemy.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && enemy.x < this.x + 10);
 
-            if (isTargetInDirection && dist <= this.attackRange + enemy.radius) {
+            if (isTargetInDirection && dist <= this.attackRange) {
                 enemies.splice(i, 1);
-                hitSuccess = true;
                 gameState.score += 100 + gameState.combo * 10;
                 gameState.combo++;
                 break;
@@ -163,7 +160,7 @@ const player = {
             this.x -= this.moveSpeed;
         }
 
-        // 화면 양 끝 벽 제한 (벽에 부딪히면 자동 반전)
+        // 화면 양 끝 벽 제한
         const minX = this.radius + 10;
         const maxX = CANVAS_WIDTH - this.radius - 10;
         if (this.x < minX) {
@@ -195,6 +192,14 @@ const player = {
         ctx.save();
         ctx.translate(this.x, this.y);
 
+        // 공격 사거리 영역 반투명 표시 (디버그 & 가이드)
+        ctx.fillStyle = 'rgba(255, 234, 167, 0.15)';
+        ctx.beginPath();
+        const startAngle = this.facing === 'RIGHT' ? -Math.PI / 2 : Math.PI / 2;
+        const endAngle = this.facing === 'RIGHT' ? Math.PI / 2 : Math.PI * 1.5;
+        ctx.arc(0, 0, this.attackRange, startAngle, endAngle);
+        ctx.fill();
+
         // 플레이어 몸체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
@@ -212,16 +217,17 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 권투 글러브 (자동 펀치 연출)
-        const punchOffset = this.punchProgress * 30;
+        // 권투 글러브 (더 길게 뻗어나가도록 수정: 70px)
+        const punchOffset = this.punchProgress * 70;
         const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
         const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
 
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
-        ctx.arc(gloveX, 5, 16, 0, Math.PI * 2);
+        ctx.arc(gloveX, 5, 18, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#c0392b';
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.restore();
@@ -239,7 +245,6 @@ class Enemy {
     }
 
     update() {
-        // 플레이어 방향으로 이동
         if (this.side === 'LEFT') {
             this.x += this.speed;
         } else {
@@ -251,7 +256,6 @@ class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 적 캐릭터 (분홍색 몬스터)
         ctx.fillStyle = '#ff7675';
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -260,7 +264,6 @@ class Enemy {
         ctx.strokeStyle = '#d63031';
         ctx.stroke();
 
-        // 적 눈
         const eyeOffset = this.side === 'LEFT' ? 8 : -8;
         ctx.fillStyle = '#2d3436';
         ctx.beginPath();
@@ -306,25 +309,22 @@ function drawUI() {
     ctx.fillText(healthStr, 20, 45);
 }
 
-// --- 4. 입력 처리 (Input Handler) ---
-// 스페이스바 입력 시 방향 전환
+// --- 4. 입력 처리 ---
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
-        e.preventDefault(); // 스페이스바 화면 스크롤 방지
+        e.preventDefault();
         if (!e.repeat && !gameState.isPaused && gameState.health > 0) {
             player.turnAround();
         }
     }
 });
 
-// 터치/클릭 입력 시에도 방향 전환
 canvas.addEventListener('pointerdown', () => {
     if (!gameState.isPaused && gameState.health > 0) {
         player.turnAround();
     }
 });
 
-// 메뉴 버튼
 const menuBtn = document.getElementById('menu-btn');
 menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -350,9 +350,9 @@ function update() {
         const enemy = enemies[i];
         enemy.update();
 
-        // 플레이어 등 뒤나 전방에서 부딪혔을 때 피격 판정
+        // 플레이어 피격 (몸체 부딪힘)
         const dist = Math.abs(enemy.x - player.x);
-        if (dist < player.radius + enemy.radius - 10) {
+        if (dist < player.radius + enemy.radius - 12) {
             enemies.splice(i, 1);
             gameState.health--;
             gameState.combo = 0;
@@ -370,7 +370,6 @@ function render() {
     player.draw();
     drawUI();
 
-    // 일시정지 표시
     if (gameState.isPaused) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -380,7 +379,6 @@ function render() {
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 
-    // 게임 오버 표시
     if (gameState.health <= 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
