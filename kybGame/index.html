@@ -138,6 +138,8 @@ const gameState = {
     maxComboTimer: 100,  // 게이지 최대값
     health: 3,
     maxHealth: 3,
+    gameTime: 0,         // 진행 시간 프레임
+    gameSpeedMultiplier: 1.0, // 시간 비례 게임 속도 배율
     isRunning: true,
     isPaused: false
 };
@@ -145,6 +147,7 @@ const gameState = {
 // --- 3. 기본 엔티티 및 스토리지 ---
 let enemies = [];
 let spawnTimer = 0;
+let currentSpawnInterval = 90; // 초기 적 스폰 주기 (프레임)
 
 // 3-1. 플레이어
 const player = {
@@ -152,11 +155,11 @@ const player = {
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT',
-    moveSpeed: 2.5,
+    baseMoveSpeed: 3.5, // 기본 이동 속도 증가 (2.5 -> 3.5)
     attackRange: 130,
 
     punchTimer: 0,
-    punchInterval: 18,
+    basePunchInterval: 14, // 기본 펀치 간격 단축 (18 -> 14)
     isPunching: false,
     punchProgress: 0,
 
@@ -198,10 +201,13 @@ const player = {
     },
 
     update() {
+        // 게임 배율에 따른 플레이어 실시간 이동 속도
+        const currentSpeed = this.baseMoveSpeed * gameState.gameSpeedMultiplier;
+
         if (this.facing === 'RIGHT') {
-            this.x += this.moveSpeed;
+            this.x += currentSpeed;
         } else {
-            this.x -= this.moveSpeed;
+            this.x -= currentSpeed;
         }
 
         const minX = this.radius + 10;
@@ -212,14 +218,16 @@ const player = {
             this.x = maxX;
         }
 
+        // 펀치 주기 가속
         this.punchTimer++;
-        if (this.punchTimer >= this.punchInterval) {
+        const currentInterval = Math.max(8, Math.floor(this.basePunchInterval / gameState.gameSpeedMultiplier));
+        if (this.punchTimer >= currentInterval) {
             this.punchTimer = 0;
             this.autoPunch();
         }
 
         if (this.isPunching) {
-            this.punchProgress -= 0.2;
+            this.punchProgress -= 0.25 * gameState.gameSpeedMultiplier;
             if (this.punchProgress <= 0) {
                 this.punchProgress = 0;
                 this.isPunching = false;
@@ -269,7 +277,10 @@ class Enemy {
         this.radius = 25;
         this.x = side === 'LEFT' ? -this.radius : CANVAS_WIDTH + this.radius;
         this.y = player.y;
-        this.speed = 1.2;
+        
+        // 기본 속도 상향 + 게임 가속 배율 적용 + 약간의 개별 속도 차이
+        const baseSpeed = 2.0 + Math.random() * 0.6;
+        this.speed = baseSpeed * gameState.gameSpeedMultiplier;
     }
 
     update() {
@@ -315,15 +326,13 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-4. UI 렌더링 (점수, 체력, 콤보 및 콤보 게이지바)
+// 3-4. UI 렌더링
 function drawUI() {
-    // 점수 표시
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
 
-    // 체력(하트) 표시
     ctx.textAlign = 'left';
     ctx.font = '24px sans-serif';
     let healthStr = '';
@@ -339,24 +348,20 @@ function drawUI() {
         const barX = (CANVAS_WIDTH - barWidth) / 2;
         const barY = 95;
 
-        // 콤보 텍스트
         ctx.textAlign = 'center';
         ctx.fillStyle = '#f1c40f';
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 82);
 
-        // 게이지 바 배경 (어두운 프레임)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, barY, barWidth, barHeight);
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-        // 게이지 비율 계산
         const fillRatio = Math.max(0, gameState.comboTimer / gameState.maxComboTimer);
         const currentFillWidth = barWidth * fillRatio;
 
-        // 잔여 게이지에 따른 색상 변경 (초록 -> 주황 -> 빨강)
         let fillColor = '#2ecc71';
         if (fillRatio < 0.3) {
             fillColor = '#e74c3c';
@@ -364,7 +369,6 @@ function drawUI() {
             fillColor = '#f39c12';
         }
 
-        // 게이지 채우기
         ctx.fillStyle = fillColor;
         ctx.fillRect(barX, barY, currentFillWidth, barHeight);
     }
@@ -379,9 +383,12 @@ function resetGame() {
     gameState.combo = 0;
     gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
+    gameState.gameTime = 0;
+    gameState.gameSpeedMultiplier = 1.0;
     gameState.isPaused = false;
     enemies = [];
     spawnTimer = 0;
+    currentSpawnInterval = 90;
     player.reset();
     
     restartBtn.style.display = 'none';
@@ -414,30 +421,37 @@ menuBtn.addEventListener('click', (e) => {
 function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
+    // 1. 게임 실행 시간 증가 및 난이도 가속 계산
+    gameState.gameTime++;
+    
+    // 약 10초(600프레임)마다 속도 및 스폰 속도 난이도 상승 (최대 2.2배까지 가속)
+    gameState.gameSpeedMultiplier = Math.min(2.2, 1.0 + (gameState.gameTime / 600) * 0.15);
+    
+    // 적 스폰 주기 가속 (90프레임에서 최소 28프레임까지 단축)
+    currentSpawnInterval = Math.max(28, 90 - Math.floor(gameState.gameTime / 120) * 5);
+
     player.update();
 
-    // 콤보 게이지 감소 로직 (콤보 수치가 늘어날수록 감소 속도 증가)
+    // 2. 콤보 게이지 감소 로직
     if (gameState.combo > 0) {
-        // 기본 감소 속도: 0.8 + (콤보 수 * 0.08)
-        const drainRate = 0.8 + (gameState.combo * 0.08);
+        const drainRate = (0.9 + (gameState.combo * 0.09)) * gameState.gameSpeedMultiplier;
         gameState.comboTimer -= drainRate;
 
-        // 게이지 바가 바닥나면 콤보 리셋
         if (gameState.comboTimer <= 0) {
             gameState.comboTimer = 0;
             gameState.combo = 0;
         }
     }
 
-    // 적 스폰
+    // 3. 적 스폰
     spawnTimer++;
-    if (spawnTimer > 100) {
+    if (spawnTimer >= currentSpawnInterval) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
         enemies.push(new Enemy(side));
         spawnTimer = 0;
     }
 
-    // 적 업데이트 및 피격 판정
+    // 4. 적 업데이트 및 피격 판정
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.update();
@@ -447,7 +461,6 @@ function update() {
             enemies.splice(i, 1);
             gameState.health--;
             
-            // 피격 시 콤보 및 게이지 즉시 초기화
             gameState.combo = 0;
             gameState.comboTimer = 0;
 
