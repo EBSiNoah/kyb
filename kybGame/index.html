@@ -118,7 +118,7 @@
 <div id="game-container">
     <button id="menu-btn" title="메뉴">⚙️</button>
     <button id="restart-btn">RESTART</button>
-    <div id="control-hint">Press [ SPACE ] or Click to Turn Around!</div>
+    <div id="control-hint">Press [ SPACE ] to Turn Around!</div>
     <canvas id="gameCanvas" width="600" height="720"></canvas>
 </div>
 
@@ -344,22 +344,17 @@ function resetGame() {
     player.reset();
     
     restartBtn.style.display = 'none';
-    menuBtn.disabled = false; // 설정 버튼 활성화
+    menuBtn.disabled = false;
 }
 
 // --- 5. 입력 처리 ---
+// 오직 스페이스바 입력만으로 방향 전환 처리
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
         if (gameState.health > 0 && !e.repeat && !gameState.isPaused) {
             player.turnAround();
         }
-    }
-});
-
-canvas.addEventListener('pointerdown', () => {
-    if (gameState.health > 0 && !gameState.isPaused) {
-        player.turnAround();
     }
 });
 
@@ -400,7 +395,7 @@ function update() {
 
             if (gameState.health <= 0) {
                 restartBtn.style.display = 'block';
-                menuBtn.disabled = true; // 게임 오버 시 설정 버튼 비활성화
+                menuBtn.disabled = true;
             }
         }
     }
