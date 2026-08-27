@@ -134,6 +134,8 @@ const CANVAS_HEIGHT = canvas.height; // 720px
 const gameState = {
     score: 0,
     combo: 0,
+    comboTimer: 0,       // 콤보 유효 시간 게이지 (0 ~ 100)
+    maxComboTimer: 100,  // 게이지 최대값
     health: 3,
     maxHealth: 3,
     isRunning: true,
@@ -183,8 +185,13 @@ const player = {
 
             if (isTargetInDirection && dist <= this.attackRange) {
                 enemies.splice(i, 1);
-                gameState.score += 100 + gameState.combo * 10;
+                
+                // 점수 계산 및 콤보 갱신
                 gameState.combo++;
+                gameState.score += 100 + gameState.combo * 10;
+                
+                // 적 격파 시 콤보 게이지 100% 충전
+                gameState.comboTimer = gameState.maxComboTimer;
                 break;
             }
         }
@@ -308,19 +315,15 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-4. UI 렌더링
+// 3-4. UI 렌더링 (점수, 체력, 콤보 및 콤보 게이지바)
 function drawUI() {
+    // 점수 표시
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 50);
+    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
 
-    if (gameState.combo > 0) {
-        ctx.fillStyle = '#f1c40f';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 85);
-    }
-
+    // 체력(하트) 표시
     ctx.textAlign = 'left';
     ctx.font = '24px sans-serif';
     let healthStr = '';
@@ -328,6 +331,43 @@ function drawUI() {
         healthStr += i < gameState.health ? '❤️ ' : '🖤 ';
     }
     ctx.fillText(healthStr, 20, 45);
+
+    // 콤보 UI 및 실시간 게이지 바
+    if (gameState.combo > 0) {
+        const barWidth = 220;
+        const barHeight = 14;
+        const barX = (CANVAS_WIDTH - barWidth) / 2;
+        const barY = 95;
+
+        // 콤보 텍스트
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 82);
+
+        // 게이지 바 배경 (어두운 프레임)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // 게이지 비율 계산
+        const fillRatio = Math.max(0, gameState.comboTimer / gameState.maxComboTimer);
+        const currentFillWidth = barWidth * fillRatio;
+
+        // 잔여 게이지에 따른 색상 변경 (초록 -> 주황 -> 빨강)
+        let fillColor = '#2ecc71';
+        if (fillRatio < 0.3) {
+            fillColor = '#e74c3c';
+        } else if (fillRatio < 0.6) {
+            fillColor = '#f39c12';
+        }
+
+        // 게이지 채우기
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY, currentFillWidth, barHeight);
+    }
 }
 
 // --- 4. 게임 리셋 및 재시작 처리 ---
@@ -337,6 +377,7 @@ const menuBtn = document.getElementById('menu-btn');
 function resetGame() {
     gameState.score = 0;
     gameState.combo = 0;
+    gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
     gameState.isPaused = false;
     enemies = [];
@@ -348,7 +389,6 @@ function resetGame() {
 }
 
 // --- 5. 입력 처리 ---
-// 오직 스페이스바 입력만으로 방향 전환 처리
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
@@ -376,6 +416,20 @@ function update() {
 
     player.update();
 
+    // 콤보 게이지 감소 로직 (콤보 수치가 늘어날수록 감소 속도 증가)
+    if (gameState.combo > 0) {
+        // 기본 감소 속도: 0.8 + (콤보 수 * 0.08)
+        const drainRate = 0.8 + (gameState.combo * 0.08);
+        gameState.comboTimer -= drainRate;
+
+        // 게이지 바가 바닥나면 콤보 리셋
+        if (gameState.comboTimer <= 0) {
+            gameState.comboTimer = 0;
+            gameState.combo = 0;
+        }
+    }
+
+    // 적 스폰
     spawnTimer++;
     if (spawnTimer > 100) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
@@ -383,6 +437,7 @@ function update() {
         spawnTimer = 0;
     }
 
+    // 적 업데이트 및 피격 판정
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.update();
@@ -391,7 +446,10 @@ function update() {
         if (dist < player.radius + enemy.radius - 12) {
             enemies.splice(i, 1);
             gameState.health--;
+            
+            // 피격 시 콤보 및 게이지 즉시 초기화
             gameState.combo = 0;
+            gameState.comboTimer = 0;
 
             if (gameState.health <= 0) {
                 restartBtn.style.display = 'block';
