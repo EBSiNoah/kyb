@@ -59,12 +59,18 @@
             backdrop-filter: blur(4px);
             z-index: 10;
         }
-        #menu-btn:hover {
+        #menu-btn:hover:not(:disabled) {
             background: rgba(255, 255, 255, 0.4);
             transform: scale(1.05);
         }
-        #menu-btn:active {
+        #menu-btn:active:not(:disabled) {
             transform: scale(0.95);
+        }
+        /* 비활성화 상태 메뉴 버튼 */
+        #menu-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
         }
         /* 조작 가이드 안내 문구 */
         #control-hint {
@@ -78,10 +84,10 @@
             pointer-events: none;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        /* 게임 오버 재시작 HTML 버튼 (옵션 UI) */
+        /* 재시작 버튼 UI */
         #restart-btn {
             position: absolute;
-            top: 60%;
+            top: 58%;
             left: 50%;
             transform: translate(-50%, -50%);
             padding: 14px 32px;
@@ -143,17 +149,15 @@ const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
-    facing: 'RIGHT', // 'LEFT' 또는 'RIGHT'
-    moveSpeed: 2.5,  // 플레이어 이동 속도
-    attackRange: 130, // 공격 사거리
+    facing: 'RIGHT',
+    moveSpeed: 2.5,
+    attackRange: 130,
 
-    // 펀치 애니메이션 제어
     punchTimer: 0,
     punchInterval: 18,
     isPunching: false,
     punchProgress: 0,
 
-    // 위치 및 상태 초기화
     reset() {
         this.x = CANVAS_WIDTH / 2;
         this.facing = 'RIGHT';
@@ -162,12 +166,10 @@ const player = {
         this.punchProgress = 0;
     },
 
-    // 방향 전환
     turnAround() {
         this.facing = this.facing === 'RIGHT' ? 'LEFT' : 'RIGHT';
     },
 
-    // 자동 펀치 실행
     autoPunch() {
         this.isPunching = true;
         this.punchProgress = 1;
@@ -189,14 +191,12 @@ const player = {
     },
 
     update() {
-        // 자동 이동
         if (this.facing === 'RIGHT') {
             this.x += this.moveSpeed;
         } else {
             this.x -= this.moveSpeed;
         }
 
-        // 벽 제한
         const minX = this.radius + 10;
         const maxX = CANVAS_WIDTH - this.radius - 10;
         if (this.x < minX) {
@@ -205,14 +205,12 @@ const player = {
             this.x = maxX;
         }
 
-        // 자동 펀치 타이머
         this.punchTimer++;
         if (this.punchTimer >= this.punchInterval) {
             this.punchTimer = 0;
             this.autoPunch();
         }
 
-        // 펀치 애니메이션 처리
         if (this.isPunching) {
             this.punchProgress -= 0.2;
             if (this.punchProgress <= 0) {
@@ -226,7 +224,6 @@ const player = {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 플레이어 몸체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -235,7 +232,6 @@ const player = {
         ctx.strokeStyle = '#d35400';
         ctx.stroke();
 
-        // 눈
         const eyeOffset = this.facing === 'RIGHT' ? 10 : -10;
         ctx.fillStyle = '#2c3e50';
         ctx.beginPath();
@@ -243,7 +239,6 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 권투 글러브
         const punchOffset = this.punchProgress * 70;
         const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
         const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
@@ -337,6 +332,7 @@ function drawUI() {
 
 // --- 4. 게임 리셋 및 재시작 처리 ---
 const restartBtn = document.getElementById('restart-btn');
+const menuBtn = document.getElementById('menu-btn');
 
 function resetGame() {
     gameState.score = 0;
@@ -346,27 +342,23 @@ function resetGame() {
     enemies = [];
     spawnTimer = 0;
     player.reset();
+    
     restartBtn.style.display = 'none';
+    menuBtn.disabled = false; // 설정 버튼 활성화
 }
 
 // --- 5. 입력 처리 ---
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
-        if (gameState.health <= 0) {
-            // 게임 오버 상태일 때 스페이스바 누르면 재시작
-            resetGame();
-        } else if (!e.repeat && !gameState.isPaused) {
+        if (gameState.health > 0 && !e.repeat && !gameState.isPaused) {
             player.turnAround();
         }
     }
 });
 
 canvas.addEventListener('pointerdown', () => {
-    if (gameState.health <= 0) {
-        // 게임 오버 상태일 때 터치/클릭하면 재시작
-        resetGame();
-    } else if (!gameState.isPaused) {
+    if (gameState.health > 0 && !gameState.isPaused) {
         player.turnAround();
     }
 });
@@ -376,7 +368,6 @@ restartBtn.addEventListener('click', (e) => {
     resetGame();
 });
 
-const menuBtn = document.getElementById('menu-btn');
 menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (gameState.health > 0) {
@@ -390,7 +381,6 @@ function update() {
 
     player.update();
 
-    // 적 스폰
     spawnTimer++;
     if (spawnTimer > 100) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
@@ -398,7 +388,6 @@ function update() {
         spawnTimer = 0;
     }
 
-    // 적 업데이트 및 피격 판정
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.update();
@@ -410,7 +399,8 @@ function update() {
             gameState.combo = 0;
 
             if (gameState.health <= 0) {
-                restartBtn.style.display = 'block'; // 버튼 표시
+                restartBtn.style.display = 'block';
+                menuBtn.disabled = true; // 게임 오버 시 설정 버튼 비활성화
             }
         }
     }
@@ -444,15 +434,11 @@ function render() {
         ctx.fillStyle = '#ff7675';
         ctx.font = 'bold 44px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
 
         ctx.fillStyle = '#ffffff';
         ctx.font = '22px sans-serif';
-        ctx.fillText(`FINAL SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
-
-        ctx.fillStyle = '#f1c40f';
-        ctx.font = '16px sans-serif';
-        ctx.fillText('Press [ SPACE ] or Tap Screen to Restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+        ctx.fillText(`FINAL SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 }
 
