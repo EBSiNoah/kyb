@@ -21,22 +21,58 @@
             min-height: 100vh;
             overflow: hidden;
         }
+        /* 반응형 컨테이너: 600x720 비율 유지 */
         #game-container {
             position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 600 / 720;
+            max-height: 95vh;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
             border-radius: 16px;
             overflow: hidden;
+            background-color: #000;
         }
         canvas {
+            width: 100%;
+            height: 100%;
             display: block;
             background: linear-gradient(to bottom, #74b9ff, #a29bfe);
+        }
+        /* 우측 상단 메뉴 버튼 UI */
+        #menu-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+        #menu-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+        #menu-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <canvas id="gameCanvas" width="480" height="720"></canvas>
+    <button id="menu-btn" title="메뉴">⚙️</button>
+    <canvas id="gameCanvas" width="600" height="720"></canvas>
 </div>
 
 <script>
@@ -44,8 +80,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const CANVAS_WIDTH = canvas.width;
-const CANVAS_HEIGHT = canvas.height;
+const CANVAS_WIDTH = canvas.width;   // 600px (가로 확장)
+const CANVAS_HEIGHT = canvas.height; // 720px
 
 // --- 2. 게임 상태 객체 (Game State) ---
 const gameState = {
@@ -53,11 +89,12 @@ const gameState = {
     combo: 0,
     health: 3,
     maxHealth: 3,
-    isRunning: true
+    isRunning: true,
+    isPaused: false
 };
 
 // --- 3. 기본 엔티티 객체 ---
-// 3-1. 플레이어 (화면 중앙 하단 배치)
+// 3-1. 플레이어 (확장된 화면의 중앙 하단 배치)
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
@@ -68,7 +105,7 @@ const player = {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 플레이어 몸체 (노란색 귀여운 캐릭터)
+        // 플레이어 몸체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -85,8 +122,8 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 권투 글러브 (바라보는 방향의 전방)
-        const gloveX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
+        // 권투 글러브
+        const gloveX = this.facing === 'RIGHT' ? this.radius + 12 : -this.radius - 12;
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
         ctx.arc(gloveX, 5, 16, 0, Math.PI * 2);
@@ -115,20 +152,20 @@ function drawEnvironment() {
 
 // 3-3. UI 렌더링 (상단 점수, 콤보, 체력)
 function drawUI() {
-    // 점수 표시
+    // 점수 표시 (메뉴 버튼 피해서 중앙)
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 50);
 
-    // 콤보 표시 (콤보가 있을 때만)
+    // 콤보 표시
     if (gameState.combo > 0) {
         ctx.fillStyle = '#f1c40f';
         ctx.font = 'bold 22px sans-serif';
         ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 85);
     }
 
-    // 체력 하트 표시
+    // 체력 하트 표시 (좌측 상단)
     ctx.textAlign = 'left';
     ctx.font = '24px sans-serif';
     let healthStr = '';
@@ -138,9 +175,17 @@ function drawUI() {
     ctx.fillText(healthStr, 20, 45);
 }
 
-// --- 4. 메인 게임 루프 ---
+// --- 4. 이벤트 리스너 ---
+const menuBtn = document.getElementById('menu-btn');
+menuBtn.addEventListener('click', () => {
+    gameState.isPaused = !gameState.isPaused;
+    console.log(gameState.isPaused ? "게임 일시정지" : "게임 재개");
+});
+
+// --- 5. 메인 게임 루프 ---
 function update() {
-    // 2단계에서 물리 연산 및 적 업데이트 로직이 들어갈 예정입니다.
+    if (gameState.isPaused) return;
+    // 다음 단계에서 물리 연산 및 업데이트 작성
 }
 
 function render() {
@@ -151,6 +196,16 @@ function render() {
     drawEnvironment();
     player.draw();
     drawUI();
+
+    // 일시정지 상태 안내
+    if (gameState.isPaused) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
 }
 
 function gameLoop() {
@@ -161,7 +216,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// --- 5. 시작 실행 ---
+// --- 6. 실행 ---
 requestAnimationFrame(gameLoop);
 </script>
 
