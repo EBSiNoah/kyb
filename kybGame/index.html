@@ -1,6 +1,169 @@
-<html>
-<head></head>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미니게임천국 - 날려날려</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #74b9ff, #a29bfe);
+        }
+    </style>
+</head>
 <body>
-hello
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="480" height="720"></canvas>
+</div>
+
+<script>
+// --- 1. Canvas 및 기본 설정 ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const CANVAS_WIDTH = canvas.width;
+const CANVAS_HEIGHT = canvas.height;
+
+// --- 2. 게임 상태 객체 (Game State) ---
+const gameState = {
+    score: 0,
+    combo: 0,
+    health: 3,
+    maxHealth: 3,
+    isRunning: true
+};
+
+// --- 3. 기본 엔티티 객체 ---
+// 3-1. 플레이어 (화면 중앙 하단 배치)
+const player = {
+    x: CANVAS_WIDTH / 2,
+    y: CANVAS_HEIGHT - 180,
+    radius: 35,
+    facing: 'RIGHT', // 'LEFT' 또는 'RIGHT'
+    
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // 플레이어 몸체 (노란색 귀여운 캐릭터)
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#d35400';
+        ctx.stroke();
+
+        // 눈
+        const eyeOffset = this.facing === 'RIGHT' ? 10 : -10;
+        ctx.fillStyle = '#2c3e50';
+        ctx.beginPath();
+        ctx.arc(eyeOffset, -8, 5, 0, Math.PI * 2);
+        ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 권투 글러브 (바라보는 방향의 전방)
+        const gloveX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(gloveX, 5, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#c0392b';
+        ctx.stroke();
+
+        ctx.restore();
+    }
+};
+
+// 3-2. 배경 및 라인 렌더링
+function drawEnvironment() {
+    // 바닥 라인 (플레이어가 서 있는 위치)
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(0, player.y + player.radius);
+    ctx.lineTo(CANVAS_WIDTH, player.y + player.radius);
+    ctx.stroke();
+
+    // 배경 하단 땅 영역
+    ctx.fillStyle = '#6c5ce7';
+    ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
+}
+
+// 3-3. UI 렌더링 (상단 점수, 콤보, 체력)
+function drawUI() {
+    // 점수 표시
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 50);
+
+    // 콤보 표시 (콤보가 있을 때만)
+    if (gameState.combo > 0) {
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 85);
+    }
+
+    // 체력 하트 표시
+    ctx.textAlign = 'left';
+    ctx.font = '24px sans-serif';
+    let healthStr = '';
+    for (let i = 0; i < gameState.maxHealth; i++) {
+        healthStr += i < gameState.health ? '❤️ ' : '🖤 ';
+    }
+    ctx.fillText(healthStr, 20, 45);
+}
+
+// --- 4. 메인 게임 루프 ---
+function update() {
+    // 2단계에서 물리 연산 및 적 업데이트 로직이 들어갈 예정입니다.
+}
+
+function render() {
+    // 화면 초기화
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // 환경, 플레이어, UI 그리기
+    drawEnvironment();
+    player.draw();
+    drawUI();
+}
+
+function gameLoop() {
+    if (gameState.isRunning) {
+        update();
+        render();
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+// --- 5. 시작 실행 ---
+requestAnimationFrame(gameLoop);
+</script>
+
 </body>
 </html>
