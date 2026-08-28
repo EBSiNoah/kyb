@@ -139,6 +139,7 @@ const gameState = {
     health: 3,
     maxHealth: 3,
     gameTime: 0,         // 진행 시간 프레임
+    currentEnemySpeed: 2.2, // 적들의 공통 속도 (시간 비례 가속)
     isRunning: true,
     isPaused: false
 };
@@ -148,17 +149,17 @@ let enemies = [];
 let spawnTimer = 0;
 let currentSpawnInterval = 80; // 초기 적 스폰 주기 (프레임)
 
-// 3-1. 플레이어 (속도 고정)
+// 3-1. 플레이어 (속도 완전 고정)
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT',
-    moveSpeed: 3.5, // 고정 이동 속도
+    moveSpeed: 3.5, // 항상 고정된 이동 속도
     attackRange: 130,
 
     punchTimer: 0,
-    punchInterval: 14, // 고정 펀치 속도 (간격)
+    punchInterval: 14, // 항상 고정된 공격 간격
     isPunching: false,
     punchProgress: 0,
 
@@ -265,21 +266,22 @@ const player = {
     }
 };
 
-// 3-2. 일반 적 클래스 (모든 인스턴스가 동일한 속도 및 패턴 유지)
+// 3-2. 일반 적 클래스 (글로벌 적 속도인 gameState.currentEnemySpeed를 공유)
 class Enemy {
     constructor(side) {
         this.side = side;
         this.radius = 25;
         this.x = side === 'LEFT' ? -this.radius : CANVAS_WIDTH + this.radius;
         this.y = player.y;
-        this.speed = 2.4; // 모든 기본 적의 속도 통일
     }
 
     update() {
+        // 모든 동일 적은 실시간 글로벌 적 속도로 일률 이동
+        const speed = gameState.currentEnemySpeed;
         if (this.side === 'LEFT') {
-            this.x += this.speed;
+            this.x += speed;
         } else {
-            this.x -= this.speed;
+            this.x -= speed;
         }
     }
 
@@ -376,6 +378,7 @@ function resetGame() {
     gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
     gameState.gameTime = 0;
+    gameState.currentEnemySpeed = 2.2;
     gameState.isPaused = false;
     enemies = [];
     spawnTimer = 0;
@@ -412,8 +415,13 @@ menuBtn.addEventListener('click', (e) => {
 function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
-    // 1. 게임 진행 시간 증가 및 적 스폰 간격 단축 (난이도 상승)
+    // 1. 진행 시간 계산 및 난이도 가속 (적 속도 증가 + 스폰 간격 단축)
     gameState.gameTime++;
+    
+    // 적 속도: 2.2에서 시작하여 약 15초(900프레임)마다 +0.25씩 가속 (최대 4.5)
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
+    
+    // 적 스폰 간격: 80프레임에서 시작해 최소 25프레임까지 단축
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
     player.update();
