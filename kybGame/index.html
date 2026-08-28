@@ -139,7 +139,6 @@ const gameState = {
     health: 3,
     maxHealth: 3,
     gameTime: 0,         // 진행 시간 프레임
-    gameSpeedMultiplier: 1.0, // 시간 비례 게임 속도 배율
     isRunning: true,
     isPaused: false
 };
@@ -147,19 +146,19 @@ const gameState = {
 // --- 3. 기본 엔티티 및 스토리지 ---
 let enemies = [];
 let spawnTimer = 0;
-let currentSpawnInterval = 90; // 초기 적 스폰 주기 (프레임)
+let currentSpawnInterval = 80; // 초기 적 스폰 주기 (프레임)
 
-// 3-1. 플레이어
+// 3-1. 플레이어 (속도 고정)
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT',
-    baseMoveSpeed: 3.5, // 기본 이동 속도 증가 (2.5 -> 3.5)
+    moveSpeed: 3.5, // 고정 이동 속도
     attackRange: 130,
 
     punchTimer: 0,
-    basePunchInterval: 14, // 기본 펀치 간격 단축 (18 -> 14)
+    punchInterval: 14, // 고정 펀치 속도 (간격)
     isPunching: false,
     punchProgress: 0,
 
@@ -201,13 +200,11 @@ const player = {
     },
 
     update() {
-        // 게임 배율에 따른 플레이어 실시간 이동 속도
-        const currentSpeed = this.baseMoveSpeed * gameState.gameSpeedMultiplier;
-
+        // 플레이어 속도는 항상 일정
         if (this.facing === 'RIGHT') {
-            this.x += currentSpeed;
+            this.x += this.moveSpeed;
         } else {
-            this.x -= currentSpeed;
+            this.x -= this.moveSpeed;
         }
 
         const minX = this.radius + 10;
@@ -218,16 +215,14 @@ const player = {
             this.x = maxX;
         }
 
-        // 펀치 주기 가속
         this.punchTimer++;
-        const currentInterval = Math.max(8, Math.floor(this.basePunchInterval / gameState.gameSpeedMultiplier));
-        if (this.punchTimer >= currentInterval) {
+        if (this.punchTimer >= this.punchInterval) {
             this.punchTimer = 0;
             this.autoPunch();
         }
 
         if (this.isPunching) {
-            this.punchProgress -= 0.25 * gameState.gameSpeedMultiplier;
+            this.punchProgress -= 0.25;
             if (this.punchProgress <= 0) {
                 this.punchProgress = 0;
                 this.isPunching = false;
@@ -270,17 +265,14 @@ const player = {
     }
 };
 
-// 3-2. 적 객체
+// 3-2. 일반 적 클래스 (모든 인스턴스가 동일한 속도 및 패턴 유지)
 class Enemy {
     constructor(side) {
         this.side = side;
         this.radius = 25;
         this.x = side === 'LEFT' ? -this.radius : CANVAS_WIDTH + this.radius;
         this.y = player.y;
-        
-        // 기본 속도 상향 + 게임 가속 배율 적용 + 약간의 개별 속도 차이
-        const baseSpeed = 2.0 + Math.random() * 0.6;
-        this.speed = baseSpeed * gameState.gameSpeedMultiplier;
+        this.speed = 2.4; // 모든 기본 적의 속도 통일
     }
 
     update() {
@@ -384,11 +376,10 @@ function resetGame() {
     gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
     gameState.gameTime = 0;
-    gameState.gameSpeedMultiplier = 1.0;
     gameState.isPaused = false;
     enemies = [];
     spawnTimer = 0;
-    currentSpawnInterval = 90;
+    currentSpawnInterval = 80;
     player.reset();
     
     restartBtn.style.display = 'none';
@@ -421,20 +412,15 @@ menuBtn.addEventListener('click', (e) => {
 function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
-    // 1. 게임 실행 시간 증가 및 난이도 가속 계산
+    // 1. 게임 진행 시간 증가 및 적 스폰 간격 단축 (난이도 상승)
     gameState.gameTime++;
-    
-    // 약 10초(600프레임)마다 속도 및 스폰 속도 난이도 상승 (최대 2.2배까지 가속)
-    gameState.gameSpeedMultiplier = Math.min(2.2, 1.0 + (gameState.gameTime / 600) * 0.15);
-    
-    // 적 스폰 주기 가속 (90프레임에서 최소 28프레임까지 단축)
-    currentSpawnInterval = Math.max(28, 90 - Math.floor(gameState.gameTime / 120) * 5);
+    currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
     player.update();
 
     // 2. 콤보 게이지 감소 로직
     if (gameState.combo > 0) {
-        const drainRate = (0.9 + (gameState.combo * 0.09)) * gameState.gameSpeedMultiplier;
+        const drainRate = 0.9 + (gameState.combo * 0.09);
         gameState.comboTimer -= drainRate;
 
         if (gameState.comboTimer <= 0) {
