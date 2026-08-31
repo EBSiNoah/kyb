@@ -82,7 +82,7 @@
         }
         #restart-btn {
             position: absolute;
-            top: 58%;
+            top: 62%;
             left: 50%;
             transform: translate(-50%, -50%);
             padding: 14px 32px;
@@ -124,21 +124,30 @@ const ctx = canvas.getContext('2d');
 
 const CANVAS_WIDTH = canvas.width;
 const CANVAS_HEIGHT = canvas.height;
+const HIGH_SCORE_KEY = "fly_game_high_score";
 
-// --- 2. 게임 상태 객체 (Game State) ---
+// --- 2. LocalStorage 최고 점수 불러오기 ---
+function loadHighScore() {
+    const saved = localStorage.getItem(HIGH_SCORE_KEY);
+    return saved ? parseInt(saved, 10) : 0;
+}
+
+// --- 3. 게임 상태 객체 (Game State) ---
 const gameState = {
     score: 0,
+    highScore: loadHighScore(),
+    isNewRecord: false,
     combo: 0,
     comboTimer: 0,
     maxComboTimer: 100,
     health: 3,
     maxHealth: 3,
     shield: 0,               // 실드 스택
-    fullHealthHeartCount: 0, // 풀피 상태에서 먹은 하트 카운트 (2개 모으면 실드+1)
+    fullHealthHeartCount: 0, // 풀피 상태 하트 획득 카운트
     
-    // 버프 아이템 타이머 (프레임 단위, 60fps 기준 600프레임 = 10초)
-    shurikenTimer: 0,        // 표창 버프 남은 시간
-    auraTimer: 0,            // 오오라 버프 남은 시간
+    // 아이템 타이머
+    shurikenTimer: 0,        // 표창 버프
+    auraTimer: 0,            // 오오라 버프
     
     gameTime: 0,
     currentEnemySpeed: 2.2,
@@ -146,15 +155,15 @@ const gameState = {
     isPaused: false
 };
 
-// --- 3. 기본 엔티티 및 스토리지 ---
+// --- 4. 엔티티 리스트 ---
 let enemies = [];
 let projectiles = [];
-let playerShurikens = []; // 플레이어가 발사한 관통 표창
-let droppedItems = [];    // 바닥에 떨어진 아이템 리스트
+let playerShurikens = [];
+let droppedItems = [];
 let spawnTimer = 0;
 let currentSpawnInterval = 80;
 
-// 아이템 습득 로직
+// 아이템 습득 처리
 function collectItem(item) {
     if (item.type === 'HEAL') {
         if (gameState.health < gameState.maxHealth) {
@@ -173,12 +182,22 @@ function collectItem(item) {
     }
 }
 
-// 3-1. 관통 표창 클래스 (플레이어 무기)
+// 점수 추가 및 최고 점수 실시간 갱신
+function addScore(amount) {
+    gameState.score += amount;
+    if (gameState.score > gameState.highScore) {
+        gameState.highScore = gameState.score;
+        gameState.isNewRecord = true;
+        localStorage.setItem(HIGH_SCORE_KEY, gameState.highScore.toString());
+    }
+}
+
+// 4-1. 관통 표창 클래스
 class PlayerShuriken {
     constructor(x, y, dir) {
         this.x = x;
         this.y = y;
-        this.dir = dir; // 1: RIGHT, -1: LEFT
+        this.dir = dir;
         this.speed = 12;
         this.radius = 12;
         this.rotation = 0;
@@ -189,7 +208,7 @@ class PlayerShuriken {
         this.x += this.speed * this.dir;
         this.rotation += 0.3;
 
-        // 아이템 공격 타격 처리
+        // 아이템 타격 습득
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const item = droppedItems[i];
             if (Math.abs(item.x - this.x) < this.radius + item.radius && Math.abs(item.y - this.y) < 35) {
@@ -198,7 +217,7 @@ class PlayerShuriken {
             }
         }
 
-        // 적 관통 타격 처리
+        // 적 관통 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (this.hitEnemies.has(enemy)) continue;
@@ -210,7 +229,7 @@ class PlayerShuriken {
                 if (enemy.hp <= 0) {
                     onEnemyKilled(enemy, i);
                 } else {
-                    enemy.x += this.dir * 20; // 넉백
+                    enemy.x += this.dir * 20;
                 }
             }
         }
@@ -233,15 +252,15 @@ class PlayerShuriken {
     }
 }
 
-// 3-2. 낙하 및 지상 착지 아이템 클래스
+// 4-2. 낙하 아이템 클래스
 class Item {
     constructor(x, y, type) {
         this.x = x;
         this.y = y;
-        this.targetY = player.y + player.radius - 12; // 바닥 라인 위치
-        this.type = type; // 'HEAL', 'SHURIKEN', 'AURA'
+        this.targetY = player.y + player.radius - 12;
+        this.type = type;
         this.radius = 16;
-        this.velocityY = -3; // 살짝 튀어올랐다가 낙하
+        this.velocityY = -3;
         this.gravity = 0.35;
         this.isGrounded = false;
         this.bounceTimer = Math.random() * 10;
@@ -252,7 +271,6 @@ class Item {
             this.velocityY += this.gravity;
             this.y += this.velocityY;
 
-            // 바닥 착지
             if (this.y >= this.targetY) {
                 this.y = this.targetY;
                 this.isGrounded = true;
@@ -285,7 +303,7 @@ class Item {
 function onEnemyKilled(enemy, index) {
     enemies.splice(index, 1);
     gameState.combo++;
-    gameState.score += enemy.scoreValue + gameState.combo * 10;
+    addScore(enemy.scoreValue + gameState.combo * 10);
     gameState.comboTimer = gameState.maxComboTimer;
 
     // 20% 확률로 아이템 드랍
@@ -296,7 +314,7 @@ function onEnemyKilled(enemy, index) {
     }
 }
 
-// 3-3. 플레이어
+// 4-3. 플레이어
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
@@ -333,7 +351,7 @@ const player = {
             playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
         }
 
-        // 1. 공격 범위 내 바닥 아이템 타격 습득 처리
+        // 아이템 타격 습득
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const item = droppedItems[i];
             const dist = Math.abs(item.x - this.x);
@@ -346,7 +364,7 @@ const player = {
             }
         }
 
-        // 2. 투사체 파괴
+        // 투사체 파괴
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const proj = projectiles[i];
             const dist = Math.abs(proj.x - this.x);
@@ -355,11 +373,11 @@ const player = {
             
             if (isTargetInDirection && dist <= this.attackRange && Math.abs(proj.y - this.y) < 40) {
                 projectiles.splice(i, 1);
-                gameState.score += 50;
+                addScore(50);
             }
         }
 
-        // 3. 적 타격
+        // 적 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
@@ -462,7 +480,7 @@ const player = {
     }
 };
 
-// 3-4. 궁수 포물선 화살
+// 4-4. 궁수 포물선 화살
 class Projectile {
     constructor(startX, startY, targetX, targetY) {
         this.x = startX;
@@ -500,7 +518,7 @@ class Projectile {
     }
 }
 
-// 3-5. 적 클래스
+// 4-5. 적 클래스
 class Enemy {
     constructor(side, type = 'NORMAL') {
         this.side = side;
@@ -632,7 +650,7 @@ class Enemy {
     }
 }
 
-// 3-6. 환경
+// 4-6. 환경
 function drawEnvironment() {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 6;
@@ -645,13 +663,19 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-7. UI 및 아이템 버프 표시
+// 4-7. UI (점수, 최고점수, 체력, 버프, 콤보)
 function drawUI() {
+    // 점수 및 최고 점수 표시
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 28px sans-serif';
+    ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
+    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 38);
 
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#f1c40f';
+    ctx.fillText(`🏆 BEST: ${gameState.highScore}`, CANVAS_WIDTH / 2, 60);
+
+    // 체력 및 실드
     ctx.textAlign = 'left';
     ctx.font = '22px sans-serif';
     let healthStr = '';
@@ -663,10 +687,11 @@ function drawUI() {
     } else if (gameState.health === gameState.maxHealth && gameState.fullHealthHeartCount > 0) {
         healthStr += `(💗1/2)`;
     }
-    ctx.fillText(healthStr, 20, 45);
+    ctx.fillText(healthStr, 20, 42);
 
+    // 버프 타이머
     let buffX = 20;
-    let buffY = 80;
+    let buffY = 82;
     ctx.font = 'bold 16px sans-serif';
     
     if (gameState.shurikenTimer > 0) {
@@ -681,16 +706,17 @@ function drawUI() {
         ctx.fillText(`✨ 오오라: ${sec}s`, buffX, buffY);
     }
 
+    // 콤보 게이지
     if (gameState.combo > 0) {
         const barWidth = 220;
         const barHeight = 14;
         const barX = (CANVAS_WIDTH - barWidth) / 2;
-        const barY = 95;
+        const barY = 100;
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#f1c40f';
         ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 82);
+        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 88);
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -732,12 +758,13 @@ function takePlayerDamage(damage) {
     }
 }
 
-// --- 4. 게임 리셋 및 재시작 처리 ---
+// --- 5. 게임 리셋 처리 ---
 const restartBtn = document.getElementById('restart-btn');
 const menuBtn = document.getElementById('menu-btn');
 
 function resetGame() {
     gameState.score = 0;
+    gameState.isNewRecord = false;
     gameState.combo = 0;
     gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
@@ -760,7 +787,7 @@ function resetGame() {
     menuBtn.disabled = false;
 }
 
-// --- 5. 입력 처리 ---
+// --- 6. 이벤트 리스너 ---
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
@@ -782,7 +809,7 @@ menuBtn.addEventListener('click', (e) => {
     }
 });
 
-// --- 6. 메인 게임 루프 ---
+// --- 7. 메인 게임 루프 ---
 function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
@@ -795,10 +822,8 @@ function update() {
 
     player.update();
 
-    // 떨어진 아이템 물리 업데이트
     droppedItems.forEach(item => item.update());
 
-    // 표창 업데이트
     for (let i = playerShurikens.length - 1; i >= 0; i--) {
         const shuriken = playerShurikens[i];
         shuriken.update();
@@ -807,7 +832,6 @@ function update() {
         }
     }
 
-    // 콤보 게이지 감소
     if (gameState.combo > 0) {
         const drainRate = 0.9 + (gameState.combo * 0.09);
         gameState.comboTimer -= drainRate;
@@ -818,7 +842,6 @@ function update() {
         }
     }
 
-    // 적 스폰
     spawnTimer++;
     if (spawnTimer >= currentSpawnInterval) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
@@ -835,7 +858,6 @@ function update() {
         spawnTimer = 0;
     }
 
-    // 궁수 투사체 업데이트
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const proj = projectiles[i];
         proj.update();
@@ -849,7 +871,6 @@ function update() {
         }
     }
 
-    // 적 업데이트 및 플레이어 피격 처리
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.update();
@@ -868,7 +889,6 @@ function render() {
 
     drawEnvironment();
 
-    // 엔티티 렌더링
     droppedItems.forEach(item => item.draw());
     enemies.forEach(enemy => enemy.draw());
     projectiles.forEach(proj => proj.draw());
@@ -877,7 +897,7 @@ function render() {
     player.draw();
     drawUI();
 
-    // 일시정지 UI
+    // 일시정지 오버레이
     if (gameState.isPaused && gameState.health > 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -887,7 +907,7 @@ function render() {
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 
-    // 게임 오버 UI
+    // 게임 오버 오버레이 (신기록 안내 포함)
     if (gameState.health <= 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -895,11 +915,21 @@ function render() {
         ctx.fillStyle = '#ff7675';
         ctx.font = 'bold 44px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
 
         ctx.fillStyle = '#ffffff';
         ctx.font = '22px sans-serif';
-        ctx.fillText(`FINAL SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        ctx.fillText(`FINAL SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillText(`🏆 BEST SCORE: ${gameState.highScore}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 15);
+
+        if (gameState.isNewRecord) {
+            ctx.fillStyle = '#e67e22';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.fillText('🎉 NEW RECORD! 🎉', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+        }
     }
 }
 
@@ -911,7 +941,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// --- 7. 실행 ---
+// --- 8. 게임 시작 ---
 requestAnimationFrame(gameLoop);
 </script>
 
