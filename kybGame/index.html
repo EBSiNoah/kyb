@@ -133,6 +133,13 @@ const gameState = {
     maxComboTimer: 100,
     health: 3,
     maxHealth: 3,
+    shield: 0,               // 실드 스택
+    fullHealthHeartCount: 0, // 풀피 상태에서 먹은 하트 카운트 (2개 모으면 실드+1)
+    
+    // 버프 아이템 타이머 (프레임 단위, 60fps 기준 600프레임 = 10초)
+    shurikenTimer: 0,        // 표창 버프 남은 시간
+    auraTimer: 0,            // 오오라 버프 남은 시간
+    
     gameTime: 0,
     currentEnemySpeed: 2.2,
     isRunning: true,
@@ -142,10 +149,108 @@ const gameState = {
 // --- 3. 기본 엔티티 및 스토리지 ---
 let enemies = [];
 let projectiles = [];
+let playerShurikens = []; // 플레이어가 발사한 관통 표창
+let droppedItems = [];    // 드랍된 아이템 리스트
 let spawnTimer = 0;
 let currentSpawnInterval = 80;
 
-// 3-1. 플레이어
+// 3-1. 관통 표창 클래스 (플레이어 무기)
+class PlayerShuriken {
+    constructor(x, y, dir) {
+        this.x = x;
+        this.y = y;
+        this.dir = dir; // 1: RIGHT, -1: LEFT
+        this.speed = 12;
+        this.radius = 12;
+        this.rotation = 0;
+        this.hitEnemies = new Set(); // 이미 타격한 적 중복 제외
+    }
+
+    update() {
+        this.x += this.speed * this.dir;
+        this.rotation += 0.3;
+
+        // 관통 및 적 타격 처리
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            if (this.hitEnemies.has(enemy)) continue;
+
+            if (Math.abs(enemy.x - this.x) < this.radius + enemy.radius && Math.abs(enemy.y - this.y) < 30) {
+                this.hitEnemies.add(enemy);
+                enemy.hp--;
+
+                if (enemy.hp <= 0) {
+                    onEnemyKilled(enemy, i);
+                } else {
+                    enemy.x += this.dir * 20; // 넉백
+                }
+            }
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        
+        ctx.fillStyle = '#00cec9';
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, -this.radius);
+            ctx.lineTo(this.radius / 3, -this.radius / 3);
+        }
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// 3-2. 드랍 아이템 클래스
+class Item {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'HEAL', 'SHURIKEN', 'AURA'
+        this.radius = 16;
+        this.bounceTimer = Math.random() * 10;
+    }
+
+    draw() {
+        this.bounceTimer += 0.08;
+        const offsetY = Math.sin(this.bounceTimer) * 5;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + offsetY);
+
+        let icon = '💖';
+        if (this.type === 'SHURIKEN') icon = '🥏';
+        else if (this.type === 'AURA') icon = '✨';
+
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(icon, 0, 0);
+
+        ctx.restore();
+    }
+}
+
+// 적 처치 통합 함수
+function onEnemyKilled(enemy, index) {
+    enemies.splice(index, 1);
+    gameState.combo++;
+    gameState.score += enemy.scoreValue + gameState.combo * 10;
+    gameState.comboTimer = gameState.maxComboTimer;
+
+    // 20% 확률로 아이템 드랍
+    if (Math.random() < 0.20) {
+        const itemTypes = ['HEAL', 'SHURIKEN', 'AURA'];
+        const chosenType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+        droppedItems.push(new Item(enemy.x, enemy.y, chosenType));
+    }
+}
+
+// 3-3. 플레이어
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
@@ -153,6 +258,7 @@ const player = {
     facing: 'RIGHT',
     moveSpeed: 3.5,
     attackRange: 130,
+    auraRange: 180, // 오오라 감속 범주
 
     punchTimer: 0,
     punchInterval: 14,
@@ -175,7 +281,14 @@ const player = {
         this.isPunching = true;
         this.punchProgress = 1;
 
-        // 1. 투사체 파괴 처리
+        const dir = this.facing === 'RIGHT' ? 1 : -1;
+
+        // 관통 표창 아이템 효과 활성화 시 표창 발사
+        if (gameState.shurikenTimer > 0) {
+            playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
+        }
+
+        // 1. 투사체 파괴
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const proj = projectiles[i];
             const dist = Math.abs(proj.x - this.x);
@@ -188,11 +301,10 @@ const player = {
             }
         }
 
-        // 2. 적 타격 처리
+        // 2. 적 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
-
             const isTargetInDirection = (this.facing === 'RIGHT' && enemy.x > this.x - 10) ||
                                         (this.facing === 'LEFT' && enemy.x < this.x + 10);
 
@@ -200,12 +312,8 @@ const player = {
                 enemy.hp--;
                 
                 if (enemy.hp <= 0) {
-                    enemies.splice(i, 1);
-                    gameState.combo++;
-                    gameState.score += enemy.scoreValue + gameState.combo * 10;
-                    gameState.comboTimer = gameState.maxComboTimer;
+                    onEnemyKilled(enemy, i);
                 } else {
-                    // 탱커 등 여러 번 맞아야 하는 적 피격 넉백
                     const knockback = enemy.side === 'LEFT' ? -25 : 25;
                     enemy.x += knockback;
                 }
@@ -239,12 +347,59 @@ const player = {
                 this.isPunching = false;
             }
         }
+
+        // 아이템 습득 판정
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            if (Math.abs(item.x - this.x) < this.radius + item.radius + 15) {
+                // 아이템 획득 효과 처리
+                if (item.type === 'HEAL') {
+                    if (gameState.health < gameState.maxHealth) {
+                        gameState.health++;
+                    } else {
+                        gameState.fullHealthHeartCount++;
+                        if (gameState.fullHealthHeartCount >= 2) {
+                            gameState.shield++;
+                            gameState.fullHealthHeartCount = 0;
+                        }
+                    }
+                } else if (item.type === 'SHURIKEN') {
+                    gameState.shurikenTimer = 600; // 10초
+                } else if (item.type === 'AURA') {
+                    gameState.auraTimer = 600; // 10초
+                }
+                droppedItems.splice(i, 1);
+            }
+        }
     },
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
 
+        // 오오라 아이템 시각 연출
+        if (gameState.auraTimer > 0) {
+            ctx.fillStyle = 'rgba(9, 132, 227, 0.15)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.auraRange, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(116, 185, 255, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // 실드 보유 효과 연출
+        if (gameState.shield > 0) {
+            ctx.strokeStyle = '#00cec9';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // 플레이어 본체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -260,6 +415,7 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
+        // 글로브
         const punchOffset = this.punchProgress * 70;
         const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
         const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
@@ -276,7 +432,7 @@ const player = {
     }
 };
 
-// 3-2. 투사체 클래스 (궁수가 발사하는 화살)
+// 3-4. 궁수 포물선 화살
 class Projectile {
     constructor(startX, startY, targetX, targetY) {
         this.x = startX;
@@ -288,15 +444,14 @@ class Projectile {
         this.radius = 8;
         
         this.progress = 0;
-        this.speed = 0.025; // 투사체 이동 속도
-        this.arcHeight = 120; // 포물선 높이
+        this.speed = 0.025;
+        this.arcHeight = 120;
     }
 
     update() {
         this.progress += this.speed;
         this.x = this.startX + (this.targetX - this.startX) * this.progress;
         
-        // 포물선 계산 (y값)
         const linearY = this.startY + (this.targetY - this.startY) * this.progress;
         const arc = Math.sin(this.progress * Math.PI) * this.arcHeight;
         this.y = linearY - arc;
@@ -315,7 +470,7 @@ class Projectile {
     }
 }
 
-// 3-3. 적 클래스 및 타입별 다형성 구현
+// 3-5. 적 클래스
 class Enemy {
     constructor(side, type = 'NORMAL') {
         this.side = side;
@@ -323,9 +478,8 @@ class Enemy {
         this.x = side === 'LEFT' ? -30 : CANVAS_WIDTH + 30;
         this.y = player.y;
 
-        // 타입별 속성 정의
         switch (type) {
-            case 'TANKER': // 1. 탱커 (3번 타격 필요, 느림)
+            case 'TANKER':
                 this.radius = 36;
                 this.hp = 3;
                 this.maxHp = 3;
@@ -335,7 +489,7 @@ class Enemy {
                 this.damage = 1;
                 this.scoreValue = 300;
                 break;
-            case 'SPEEDER': // 2. 스피더 (1.5배 속도)
+            case 'SPEEDER':
                 this.radius = 20;
                 this.hp = 1;
                 this.maxHp = 1;
@@ -345,7 +499,7 @@ class Enemy {
                 this.damage = 1;
                 this.scoreValue = 150;
                 break;
-            case 'ARCHER': // 3. 궁수 (매우 느림, 포물선 투사체)
+            case 'ARCHER':
                 this.radius = 25;
                 this.hp = 1;
                 this.maxHp = 1;
@@ -357,7 +511,7 @@ class Enemy {
                 this.shootTimer = 0;
                 this.shootInterval = 110;
                 break;
-            case 'KAMIKAZE': // 4. 자폭병 (플레이어 닿으면 데미지 2)
+            case 'KAMIKAZE':
                 this.radius = 24;
                 this.hp = 1;
                 this.maxHp = 1;
@@ -368,7 +522,7 @@ class Enemy {
                 this.scoreValue = 250;
                 this.pulseTimer = 0;
                 break;
-            default: // 0. 일반 적 (NORMAL)
+            default:
                 this.radius = 25;
                 this.hp = 1;
                 this.maxHp = 1;
@@ -382,15 +536,19 @@ class Enemy {
     }
 
     update() {
-        // 이동 계산
-        const moveSpeed = gameState.currentEnemySpeed * this.speedMultiplier;
+        // 오오라 아이템 유효 시 이동속도 50% 감속 적용
+        let slowFactor = 1.0;
+        if (gameState.auraTimer > 0 && Math.abs(this.x - player.x) <= player.auraRange) {
+            slowFactor = 0.5;
+        }
+
+        const moveSpeed = gameState.currentEnemySpeed * this.speedMultiplier * slowFactor;
         if (this.side === 'LEFT') {
             this.x += moveSpeed;
         } else {
             this.x -= moveSpeed;
         }
 
-        // 궁수 특수 패턴: 일정 시간마다 포물선 투사체 발사
         if (this.type === 'ARCHER') {
             this.shootTimer++;
             if (this.shootTimer >= this.shootInterval) {
@@ -399,7 +557,6 @@ class Enemy {
             }
         }
 
-        // 자폭병 애니메이션용 타이머
         if (this.type === 'KAMIKAZE') {
             this.pulseTimer += 0.15;
         }
@@ -409,7 +566,6 @@ class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 자폭병 펄스 효과
         let drawRadius = this.radius;
         if (this.type === 'KAMIKAZE') {
             drawRadius += Math.sin(this.pulseTimer) * 3;
@@ -423,7 +579,6 @@ class Enemy {
         ctx.strokeStyle = this.borderColor;
         ctx.stroke();
 
-        // 눈 그리기
         const eyeOffset = this.side === 'LEFT' ? 8 : -8;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
@@ -434,7 +589,6 @@ class Enemy {
         ctx.arc(eyeOffset + (this.side === 'LEFT' ? 2 : -2), -5, 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 탱커 체력바 표시
         if (this.type === 'TANKER' && this.hp < this.maxHp) {
             const barW = 40;
             const barH = 6;
@@ -449,7 +603,7 @@ class Enemy {
     }
 }
 
-// 3-4. 배경 및 라인 렌더링
+// 3-6. 환경
 function drawEnvironment() {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 6;
@@ -462,21 +616,45 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-5. UI 렌더링
+// 3-7. UI 및 아이템 버프 표시
 function drawUI() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
 
+    // 체력 및 실드
     ctx.textAlign = 'left';
-    ctx.font = '24px sans-serif';
+    ctx.font = '22px sans-serif';
     let healthStr = '';
     for (let i = 0; i < gameState.maxHealth; i++) {
         healthStr += i < gameState.health ? '❤️ ' : '🖤 ';
     }
+    if (gameState.shield > 0) {
+        healthStr += `🛡️x${gameState.shield}`;
+    } else if (gameState.health === gameState.maxHealth && gameState.fullHealthHeartCount > 0) {
+        healthStr += `(💗1/2)`;
+    }
     ctx.fillText(healthStr, 20, 45);
 
+    // 활성화된 아이템 버프 타이머 표시
+    let buffX = 20;
+    let buffY = 80;
+    ctx.font = 'bold 16px sans-serif';
+    
+    if (gameState.shurikenTimer > 0) {
+        const sec = Math.ceil(gameState.shurikenTimer / 60);
+        ctx.fillStyle = '#00cec9';
+        ctx.fillText(`🥏 표창: ${sec}s`, buffX, buffY);
+        buffY += 25;
+    }
+    if (gameState.auraTimer > 0) {
+        const sec = Math.ceil(gameState.auraTimer / 60);
+        ctx.fillStyle = '#74b9ff';
+        ctx.fillText(`✨ 오오라: ${sec}s`, buffX, buffY);
+    }
+
+    // 콤보 UI
     if (gameState.combo > 0) {
         const barWidth = 220;
         const barHeight = 14;
@@ -509,6 +687,26 @@ function drawUI() {
     }
 }
 
+// 플레이어 피격 처리 통합 함수 (실드 먼저 차감)
+function takePlayerDamage(damage) {
+    let remainingDamage = damage;
+    
+    while (remainingDamage > 0 && gameState.shield > 0) {
+        gameState.shield--;
+        remainingDamage--;
+    }
+
+    gameState.health -= remainingDamage;
+    gameState.combo = 0;
+    gameState.comboTimer = 0;
+
+    if (gameState.health <= 0) {
+        gameState.health = 0;
+        restartBtn.style.display = 'block';
+        menuBtn.disabled = true;
+    }
+}
+
 // --- 4. 게임 리셋 및 재시작 처리 ---
 const restartBtn = document.getElementById('restart-btn');
 const menuBtn = document.getElementById('menu-btn');
@@ -518,11 +716,17 @@ function resetGame() {
     gameState.combo = 0;
     gameState.comboTimer = 0;
     gameState.health = gameState.maxHealth;
+    gameState.shield = 0;
+    gameState.fullHealthHeartCount = 0;
+    gameState.shurikenTimer = 0;
+    gameState.auraTimer = 0;
     gameState.gameTime = 0;
     gameState.currentEnemySpeed = 2.2;
     gameState.isPaused = false;
     enemies = [];
     projectiles = [];
+    playerShurikens = [];
+    droppedItems = [];
     spawnTimer = 0;
     currentSpawnInterval = 80;
     player.reset();
@@ -561,7 +765,20 @@ function update() {
     gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
+    // 버프 타이머 감소
+    if (gameState.shurikenTimer > 0) gameState.shurikenTimer--;
+    if (gameState.auraTimer > 0) gameState.auraTimer--;
+
     player.update();
+
+    // 표창 업데이트
+    for (let i = playerShurikens.length - 1; i >= 0; i--) {
+        const shuriken = playerShurikens[i];
+        shuriken.update();
+        if (shuriken.x < -50 || shuriken.x > CANVAS_WIDTH + 50) {
+            playerShurikens.splice(i, 1);
+        }
+    }
 
     // 콤보 게이지 감소
     if (gameState.combo > 0) {
@@ -574,7 +791,7 @@ function update() {
         }
     }
 
-    // 적 확률적 스폰 (5가지 타입)
+    // 적 스폰
     spawnTimer++;
     if (spawnTimer >= currentSpawnInterval) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
@@ -591,25 +808,17 @@ function update() {
         spawnTimer = 0;
     }
 
-    // 투사체 업데이트 및 플레이어 충돌 처리
+    // 궁수 투사체 업데이트
     for (let i = projectiles.length - 1; i >= 0; i--) {
         const proj = projectiles[i];
         proj.update();
 
-        // 플레이어와 투사체 충돌
         const dist = Math.hypot(proj.x - player.x, proj.y - player.y);
         if (dist < player.radius + proj.radius - 5) {
             projectiles.splice(i, 1);
-            gameState.health--;
-            gameState.combo = 0;
-            gameState.comboTimer = 0;
-
-            if (gameState.health <= 0) {
-                restartBtn.style.display = 'block';
-                menuBtn.disabled = true;
-            }
+            takePlayerDamage(1);
         } else if (proj.progress >= 1.0) {
-            projectiles.splice(i, 1); // 땅에 떨어지면 소멸
+            projectiles.splice(i, 1);
         }
     }
 
@@ -620,17 +829,9 @@ function update() {
 
         const dist = Math.abs(enemy.x - player.x);
         if (dist < player.radius + enemy.radius - 12) {
-            gameState.health -= enemy.damage;
+            const damage = enemy.damage;
             enemies.splice(i, 1);
-            
-            gameState.combo = 0;
-            gameState.comboTimer = 0;
-
-            if (gameState.health <= 0) {
-                gameState.health = 0;
-                restartBtn.style.display = 'block';
-                menuBtn.disabled = true;
-            }
+            takePlayerDamage(damage);
         }
     }
 }
@@ -641,8 +842,10 @@ function render() {
     drawEnvironment();
 
     // 엔티티 렌더링
+    droppedItems.forEach(item => item.draw());
     enemies.forEach(enemy => enemy.draw());
     projectiles.forEach(proj => proj.draw());
+    playerShurikens.forEach(shuriken => shuriken.draw());
 
     player.draw();
     drawUI();
