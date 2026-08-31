@@ -418,8 +418,8 @@ function update() {
     // 1. 진행 시간 계산 및 난이도 가속 (적 속도 증가 + 스폰 간격 단축)
     gameState.gameTime++;
     
-    // 적 속도: 2.2에서 시작하여 약 15초(900프레임)마다 +0.25씩 가속 (최대 4.5)
-    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
+    // 적 속도: 2.2에서 시작하여 약 3초(180프레임)마다 +0.25씩 가속 (최대 4.5)
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 180) * 0.25);
     
     // 적 스폰 간격: 80프레임에서 시작해 최소 25프레임까지 단축
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
@@ -428,7 +428,7 @@ function update() {
 
     // 2. 콤보 게이지 감소 로직
     if (gameState.combo > 0) {
-        const drainRate = 0.9 + (gameState.combo * 0.09);
+        const drainRate = 0.3 + (gameState.combo * 0.09);
         gameState.comboTimer -= drainRate;
 
         if (gameState.comboTimer <= 0) {
