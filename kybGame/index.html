@@ -21,7 +21,6 @@
             min-height: 100vh;
             overflow: hidden;
         }
-        /* 반응형 컨테이너: 600x720 비율 유지 */
         #game-container {
             position: relative;
             width: 100%;
@@ -39,7 +38,6 @@
             display: block;
             background: linear-gradient(to bottom, #74b9ff, #a29bfe);
         }
-        /* 우측 상단 메뉴 버튼 UI */
         #menu-btn {
             position: absolute;
             top: 15px;
@@ -66,13 +64,11 @@
         #menu-btn:active:not(:disabled) {
             transform: scale(0.95);
         }
-        /* 비활성화 상태 메뉴 버튼 */
         #menu-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
             pointer-events: none;
         }
-        /* 조작 가이드 안내 문구 */
         #control-hint {
             position: absolute;
             bottom: 20px;
@@ -84,7 +80,6 @@
             pointer-events: none;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-        /* 재시작 버튼 UI */
         #restart-btn {
             position: absolute;
             top: 58%;
@@ -127,39 +122,40 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const CANVAS_WIDTH = canvas.width;   // 600px
-const CANVAS_HEIGHT = canvas.height; // 720px
+const CANVAS_WIDTH = canvas.width;
+const CANVAS_HEIGHT = canvas.height;
 
 // --- 2. 게임 상태 객체 (Game State) ---
 const gameState = {
     score: 0,
     combo: 0,
-    comboTimer: 0,       // 콤보 유효 시간 게이지 (0 ~ 100)
-    maxComboTimer: 100,  // 게이지 최대값
+    comboTimer: 0,
+    maxComboTimer: 100,
     health: 3,
     maxHealth: 3,
-    gameTime: 0,         // 진행 시간 프레임
-    currentEnemySpeed: 2.2, // 적들의 공통 속도 (시간 비례 가속)
+    gameTime: 0,
+    currentEnemySpeed: 2.2,
     isRunning: true,
     isPaused: false
 };
 
 // --- 3. 기본 엔티티 및 스토리지 ---
 let enemies = [];
+let projectiles = [];
 let spawnTimer = 0;
-let currentSpawnInterval = 80; // 초기 적 스폰 주기 (프레임)
+let currentSpawnInterval = 80;
 
-// 3-1. 플레이어 (속도 완전 고정)
+// 3-1. 플레이어
 const player = {
     x: CANVAS_WIDTH / 2,
     y: CANVAS_HEIGHT - 180,
     radius: 35,
     facing: 'RIGHT',
-    moveSpeed: 3.5, // 항상 고정된 이동 속도
+    moveSpeed: 3.5,
     attackRange: 130,
 
     punchTimer: 0,
-    punchInterval: 14, // 항상 고정된 공격 간격
+    punchInterval: 14,
     isPunching: false,
     punchProgress: 0,
 
@@ -179,6 +175,20 @@ const player = {
         this.isPunching = true;
         this.punchProgress = 1;
 
+        // 1. 투사체 파괴 처리
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const proj = projectiles[i];
+            const dist = Math.abs(proj.x - this.x);
+            const isTargetInDirection = (this.facing === 'RIGHT' && proj.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && proj.x < this.x + 10);
+            
+            if (isTargetInDirection && dist <= this.attackRange && Math.abs(proj.y - this.y) < 40) {
+                projectiles.splice(i, 1);
+                gameState.score += 50;
+            }
+        }
+
+        // 2. 적 타격 처리
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
@@ -187,21 +197,24 @@ const player = {
                                         (this.facing === 'LEFT' && enemy.x < this.x + 10);
 
             if (isTargetInDirection && dist <= this.attackRange) {
-                enemies.splice(i, 1);
+                enemy.hp--;
                 
-                // 점수 계산 및 콤보 갱신
-                gameState.combo++;
-                gameState.score += 100 + gameState.combo * 10;
-                
-                // 적 격파 시 콤보 게이지 100% 충전
-                gameState.comboTimer = gameState.maxComboTimer;
+                if (enemy.hp <= 0) {
+                    enemies.splice(i, 1);
+                    gameState.combo++;
+                    gameState.score += enemy.scoreValue + gameState.combo * 10;
+                    gameState.comboTimer = gameState.maxComboTimer;
+                } else {
+                    // 탱커 등 여러 번 맞아야 하는 적 피격 넉백
+                    const knockback = enemy.side === 'LEFT' ? -25 : 25;
+                    enemy.x += knockback;
+                }
                 break;
             }
         }
     },
 
     update() {
-        // 플레이어 속도는 항상 일정
         if (this.facing === 'RIGHT') {
             this.x += this.moveSpeed;
         } else {
@@ -210,11 +223,8 @@ const player = {
 
         const minX = this.radius + 10;
         const maxX = CANVAS_WIDTH - this.radius - 10;
-        if (this.x < minX) {
-            this.x = minX;
-        } else if (this.x > maxX) {
-            this.x = maxX;
-        }
+        if (this.x < minX) this.x = minX;
+        if (this.x > maxX) this.x = maxX;
 
         this.punchTimer++;
         if (this.punchTimer >= this.punchInterval) {
@@ -266,22 +276,132 @@ const player = {
     }
 };
 
-// 3-2. 일반 적 클래스 (글로벌 적 속도인 gameState.currentEnemySpeed를 공유)
-class Enemy {
-    constructor(side) {
-        this.side = side;
-        this.radius = 25;
-        this.x = side === 'LEFT' ? -this.radius : CANVAS_WIDTH + this.radius;
-        this.y = player.y;
+// 3-2. 투사체 클래스 (궁수가 발사하는 화살)
+class Projectile {
+    constructor(startX, startY, targetX, targetY) {
+        this.x = startX;
+        this.y = startY;
+        this.startX = startX;
+        this.startY = startY;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.radius = 8;
+        
+        this.progress = 0;
+        this.speed = 0.025; // 투사체 이동 속도
+        this.arcHeight = 120; // 포물선 높이
     }
 
     update() {
-        // 모든 동일 적은 실시간 글로벌 적 속도로 일률 이동
-        const speed = gameState.currentEnemySpeed;
+        this.progress += this.speed;
+        this.x = this.startX + (this.targetX - this.startX) * this.progress;
+        
+        // 포물선 계산 (y값)
+        const linearY = this.startY + (this.targetY - this.startY) * this.progress;
+        const arc = Math.sin(this.progress * Math.PI) * this.arcHeight;
+        this.y = linearY - arc;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#27ae60';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// 3-3. 적 클래스 및 타입별 다형성 구현
+class Enemy {
+    constructor(side, type = 'NORMAL') {
+        this.side = side;
+        this.type = type;
+        this.x = side === 'LEFT' ? -30 : CANVAS_WIDTH + 30;
+        this.y = player.y;
+
+        // 타입별 속성 정의
+        switch (type) {
+            case 'TANKER': // 1. 탱커 (3번 타격 필요, 느림)
+                this.radius = 36;
+                this.hp = 3;
+                this.maxHp = 3;
+                this.speedMultiplier = 0.5;
+                this.color = '#2980b9';
+                this.borderColor = '#1f618d';
+                this.damage = 1;
+                this.scoreValue = 300;
+                break;
+            case 'SPEEDER': // 2. 스피더 (1.5배 속도)
+                this.radius = 20;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.5;
+                this.color = '#f1c40f';
+                this.borderColor = '#f39c12';
+                this.damage = 1;
+                this.scoreValue = 150;
+                break;
+            case 'ARCHER': // 3. 궁수 (매우 느림, 포물선 투사체)
+                this.radius = 25;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 0.35;
+                this.color = '#2ecc71';
+                this.borderColor = '#27ae60';
+                this.damage = 1;
+                this.scoreValue = 200;
+                this.shootTimer = 0;
+                this.shootInterval = 110;
+                break;
+            case 'KAMIKAZE': // 4. 자폭병 (플레이어 닿으면 데미지 2)
+                this.radius = 24;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.1;
+                this.color = '#9b59b6';
+                this.borderColor = '#8e44ad';
+                this.damage = 2;
+                this.scoreValue = 250;
+                this.pulseTimer = 0;
+                break;
+            default: // 0. 일반 적 (NORMAL)
+                this.radius = 25;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.0;
+                this.color = '#ff7675';
+                this.borderColor = '#d63031';
+                this.damage = 1;
+                this.scoreValue = 100;
+                break;
+        }
+    }
+
+    update() {
+        // 이동 계산
+        const moveSpeed = gameState.currentEnemySpeed * this.speedMultiplier;
         if (this.side === 'LEFT') {
-            this.x += speed;
+            this.x += moveSpeed;
         } else {
-            this.x -= speed;
+            this.x -= moveSpeed;
+        }
+
+        // 궁수 특수 패턴: 일정 시간마다 포물선 투사체 발사
+        if (this.type === 'ARCHER') {
+            this.shootTimer++;
+            if (this.shootTimer >= this.shootInterval) {
+                this.shootTimer = 0;
+                projectiles.push(new Projectile(this.x, this.y - 10, player.x, player.y));
+            }
+        }
+
+        // 자폭병 애니메이션용 타이머
+        if (this.type === 'KAMIKAZE') {
+            this.pulseTimer += 0.15;
         }
     }
 
@@ -289,25 +409,47 @@ class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        ctx.fillStyle = '#ff7675';
+        // 자폭병 펄스 효과
+        let drawRadius = this.radius;
+        if (this.type === 'KAMIKAZE') {
+            drawRadius += Math.sin(this.pulseTimer) * 3;
+        }
+
+        ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.arc(0, 0, drawRadius, 0, Math.PI * 2);
         ctx.fill();
         ctx.lineWidth = 3;
-        ctx.strokeStyle = '#d63031';
+        ctx.strokeStyle = this.borderColor;
         ctx.stroke();
 
+        // 눈 그리기
         const eyeOffset = this.side === 'LEFT' ? 8 : -8;
-        ctx.fillStyle = '#2d3436';
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(eyeOffset, -5, 4, 0, Math.PI * 2);
+        ctx.arc(eyeOffset, -5, 5, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(eyeOffset + (this.side === 'LEFT' ? 2 : -2), -5, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 탱커 체력바 표시
+        if (this.type === 'TANKER' && this.hp < this.maxHp) {
+            const barW = 40;
+            const barH = 6;
+            const hpRatio = this.hp / this.maxHp;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(-barW/2, -this.radius - 14, barW, barH);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(-barW/2, -this.radius - 14, barW * hpRatio, barH);
+        }
 
         ctx.restore();
     }
 }
 
-// 3-3. 배경 및 라인 렌더링
+// 3-4. 배경 및 라인 렌더링
 function drawEnvironment() {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 6;
@@ -320,7 +462,7 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 3-4. UI 렌더링
+// 3-5. UI 렌더링
 function drawUI() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
@@ -335,7 +477,6 @@ function drawUI() {
     }
     ctx.fillText(healthStr, 20, 45);
 
-    // 콤보 UI 및 실시간 게이지 바
     if (gameState.combo > 0) {
         const barWidth = 220;
         const barHeight = 14;
@@ -381,6 +522,7 @@ function resetGame() {
     gameState.currentEnemySpeed = 2.2;
     gameState.isPaused = false;
     enemies = [];
+    projectiles = [];
     spawnTimer = 0;
     currentSpawnInterval = 80;
     player.reset();
@@ -415,20 +557,15 @@ menuBtn.addEventListener('click', (e) => {
 function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
-    // 1. 진행 시간 계산 및 난이도 가속 (적 속도 증가 + 스폰 간격 단축)
     gameState.gameTime++;
-    
-    // 적 속도: 2.2에서 시작하여 약 3초(180프레임)마다 +0.25씩 가속 (최대 4.5)
-    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 180) * 0.25);
-    
-    // 적 스폰 간격: 80프레임에서 시작해 최소 25프레임까지 단축
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
     player.update();
 
-    // 2. 콤보 게이지 감소 로직
+    // 콤보 게이지 감소
     if (gameState.combo > 0) {
-        const drainRate = 0.3 + (gameState.combo * 0.09);
+        const drainRate = 0.9 + (gameState.combo * 0.09);
         gameState.comboTimer -= drainRate;
 
         if (gameState.comboTimer <= 0) {
@@ -437,28 +574,60 @@ function update() {
         }
     }
 
-    // 3. 적 스폰
+    // 적 확률적 스폰 (5가지 타입)
     spawnTimer++;
     if (spawnTimer >= currentSpawnInterval) {
         const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
-        enemies.push(new Enemy(side));
+        
+        const rand = Math.random();
+        let enemyType = 'NORMAL';
+        if (rand < 0.45) enemyType = 'NORMAL';
+        else if (rand < 0.65) enemyType = 'SPEEDER';
+        else if (rand < 0.80) enemyType = 'KAMIKAZE';
+        else if (rand < 0.92) enemyType = 'ARCHER';
+        else enemyType = 'TANKER';
+
+        enemies.push(new Enemy(side, enemyType));
         spawnTimer = 0;
     }
 
-    // 4. 적 업데이트 및 피격 판정
+    // 투사체 업데이트 및 플레이어 충돌 처리
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const proj = projectiles[i];
+        proj.update();
+
+        // 플레이어와 투사체 충돌
+        const dist = Math.hypot(proj.x - player.x, proj.y - player.y);
+        if (dist < player.radius + proj.radius - 5) {
+            projectiles.splice(i, 1);
+            gameState.health--;
+            gameState.combo = 0;
+            gameState.comboTimer = 0;
+
+            if (gameState.health <= 0) {
+                restartBtn.style.display = 'block';
+                menuBtn.disabled = true;
+            }
+        } else if (proj.progress >= 1.0) {
+            projectiles.splice(i, 1); // 땅에 떨어지면 소멸
+        }
+    }
+
+    // 적 업데이트 및 플레이어 피격 처리
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         enemy.update();
 
         const dist = Math.abs(enemy.x - player.x);
         if (dist < player.radius + enemy.radius - 12) {
+            gameState.health -= enemy.damage;
             enemies.splice(i, 1);
-            gameState.health--;
             
             gameState.combo = 0;
             gameState.comboTimer = 0;
 
             if (gameState.health <= 0) {
+                gameState.health = 0;
                 restartBtn.style.display = 'block';
                 menuBtn.disabled = true;
             }
@@ -471,7 +640,9 @@ function render() {
 
     drawEnvironment();
 
+    // 엔티티 렌더링
     enemies.forEach(enemy => enemy.draw());
+    projectiles.forEach(proj => proj.draw());
 
     player.draw();
     drawUI();
