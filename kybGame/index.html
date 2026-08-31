@@ -150,9 +150,28 @@ const gameState = {
 let enemies = [];
 let projectiles = [];
 let playerShurikens = []; // 플레이어가 발사한 관통 표창
-let droppedItems = [];    // 드랍된 아이템 리스트
+let droppedItems = [];    // 바닥에 떨어진 아이템 리스트
 let spawnTimer = 0;
 let currentSpawnInterval = 80;
+
+// 아이템 습득 로직
+function collectItem(item) {
+    if (item.type === 'HEAL') {
+        if (gameState.health < gameState.maxHealth) {
+            gameState.health++;
+        } else {
+            gameState.fullHealthHeartCount++;
+            if (gameState.fullHealthHeartCount >= 2) {
+                gameState.shield++;
+                gameState.fullHealthHeartCount = 0;
+            }
+        }
+    } else if (item.type === 'SHURIKEN') {
+        gameState.shurikenTimer = 600; // 10초
+    } else if (item.type === 'AURA') {
+        gameState.auraTimer = 600; // 10초
+    }
+}
 
 // 3-1. 관통 표창 클래스 (플레이어 무기)
 class PlayerShuriken {
@@ -163,14 +182,23 @@ class PlayerShuriken {
         this.speed = 12;
         this.radius = 12;
         this.rotation = 0;
-        this.hitEnemies = new Set(); // 이미 타격한 적 중복 제외
+        this.hitEnemies = new Set();
     }
 
     update() {
         this.x += this.speed * this.dir;
         this.rotation += 0.3;
 
-        // 관통 및 적 타격 처리
+        // 아이템 공격 타격 처리
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            if (Math.abs(item.x - this.x) < this.radius + item.radius && Math.abs(item.y - this.y) < 35) {
+                collectItem(item);
+                droppedItems.splice(i, 1);
+            }
+        }
+
+        // 적 관통 타격 처리
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (this.hitEnemies.has(enemy)) continue;
@@ -205,19 +233,37 @@ class PlayerShuriken {
     }
 }
 
-// 3-2. 드랍 아이템 클래스
+// 3-2. 낙하 및 지상 착지 아이템 클래스
 class Item {
     constructor(x, y, type) {
         this.x = x;
         this.y = y;
+        this.targetY = player.y + player.radius - 12; // 바닥 라인 위치
         this.type = type; // 'HEAL', 'SHURIKEN', 'AURA'
         this.radius = 16;
+        this.velocityY = -3; // 살짝 튀어올랐다가 낙하
+        this.gravity = 0.35;
+        this.isGrounded = false;
         this.bounceTimer = Math.random() * 10;
     }
 
+    update() {
+        if (!this.isGrounded) {
+            this.velocityY += this.gravity;
+            this.y += this.velocityY;
+
+            // 바닥 착지
+            if (this.y >= this.targetY) {
+                this.y = this.targetY;
+                this.isGrounded = true;
+            }
+        } else {
+            this.bounceTimer += 0.08;
+        }
+    }
+
     draw() {
-        this.bounceTimer += 0.08;
-        const offsetY = Math.sin(this.bounceTimer) * 5;
+        const offsetY = this.isGrounded ? Math.sin(this.bounceTimer) * 4 : 0;
 
         ctx.save();
         ctx.translate(this.x, this.y + offsetY);
@@ -258,7 +304,7 @@ const player = {
     facing: 'RIGHT',
     moveSpeed: 3.5,
     attackRange: 130,
-    auraRange: 180, // 오오라 감속 범주
+    auraRange: 180,
 
     punchTimer: 0,
     punchInterval: 14,
@@ -283,12 +329,24 @@ const player = {
 
         const dir = this.facing === 'RIGHT' ? 1 : -1;
 
-        // 관통 표창 아이템 효과 활성화 시 표창 발사
         if (gameState.shurikenTimer > 0) {
             playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
         }
 
-        // 1. 투사체 파괴
+        // 1. 공격 범위 내 바닥 아이템 타격 습득 처리
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            const dist = Math.abs(item.x - this.x);
+            const isTargetInDirection = (this.facing === 'RIGHT' && item.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && item.x < this.x + 10);
+
+            if (isTargetInDirection && dist <= this.attackRange) {
+                collectItem(item);
+                droppedItems.splice(i, 1);
+            }
+        }
+
+        // 2. 투사체 파괴
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const proj = projectiles[i];
             const dist = Math.abs(proj.x - this.x);
@@ -301,7 +359,7 @@ const player = {
             }
         }
 
-        // 2. 적 타격
+        // 3. 적 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
@@ -347,37 +405,12 @@ const player = {
                 this.isPunching = false;
             }
         }
-
-        // 아이템 습득 판정
-        for (let i = droppedItems.length - 1; i >= 0; i--) {
-            const item = droppedItems[i];
-            if (Math.abs(item.x - this.x) < this.radius + item.radius + 15) {
-                // 아이템 획득 효과 처리
-                if (item.type === 'HEAL') {
-                    if (gameState.health < gameState.maxHealth) {
-                        gameState.health++;
-                    } else {
-                        gameState.fullHealthHeartCount++;
-                        if (gameState.fullHealthHeartCount >= 2) {
-                            gameState.shield++;
-                            gameState.fullHealthHeartCount = 0;
-                        }
-                    }
-                } else if (item.type === 'SHURIKEN') {
-                    gameState.shurikenTimer = 600; // 10초
-                } else if (item.type === 'AURA') {
-                    gameState.auraTimer = 600; // 10초
-                }
-                droppedItems.splice(i, 1);
-            }
-        }
     },
 
     draw() {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // 오오라 아이템 시각 연출
         if (gameState.auraTimer > 0) {
             ctx.fillStyle = 'rgba(9, 132, 227, 0.15)';
             ctx.beginPath();
@@ -390,7 +423,6 @@ const player = {
             ctx.setLineDash([]);
         }
 
-        // 실드 보유 효과 연출
         if (gameState.shield > 0) {
             ctx.strokeStyle = '#00cec9';
             ctx.lineWidth = 5;
@@ -399,7 +431,6 @@ const player = {
             ctx.stroke();
         }
 
-        // 플레이어 본체
         ctx.fillStyle = '#f1c40f';
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -415,7 +446,6 @@ const player = {
         ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        // 글로브
         const punchOffset = this.punchProgress * 70;
         const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
         const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
@@ -536,7 +566,6 @@ class Enemy {
     }
 
     update() {
-        // 오오라 아이템 유효 시 이동속도 50% 감속 적용
         let slowFactor = 1.0;
         if (gameState.auraTimer > 0 && Math.abs(this.x - player.x) <= player.auraRange) {
             slowFactor = 0.5;
@@ -623,7 +652,6 @@ function drawUI() {
     ctx.textAlign = 'center';
     ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
 
-    // 체력 및 실드
     ctx.textAlign = 'left';
     ctx.font = '22px sans-serif';
     let healthStr = '';
@@ -637,7 +665,6 @@ function drawUI() {
     }
     ctx.fillText(healthStr, 20, 45);
 
-    // 활성화된 아이템 버프 타이머 표시
     let buffX = 20;
     let buffY = 80;
     ctx.font = 'bold 16px sans-serif';
@@ -654,7 +681,6 @@ function drawUI() {
         ctx.fillText(`✨ 오오라: ${sec}s`, buffX, buffY);
     }
 
-    // 콤보 UI
     if (gameState.combo > 0) {
         const barWidth = 220;
         const barHeight = 14;
@@ -687,7 +713,6 @@ function drawUI() {
     }
 }
 
-// 플레이어 피격 처리 통합 함수 (실드 먼저 차감)
 function takePlayerDamage(damage) {
     let remainingDamage = damage;
     
@@ -765,11 +790,13 @@ function update() {
     gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
-    // 버프 타이머 감소
     if (gameState.shurikenTimer > 0) gameState.shurikenTimer--;
     if (gameState.auraTimer > 0) gameState.auraTimer--;
 
     player.update();
+
+    // 떨어진 아이템 물리 업데이트
+    droppedItems.forEach(item => item.update());
 
     // 표창 업데이트
     for (let i = playerShurikens.length - 1; i >= 0; i--) {
