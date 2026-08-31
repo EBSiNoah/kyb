@@ -1,89 +1,919 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>미니게임천국 - 날려날려</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 600 / 720;
+            max-height: 95vh;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: linear-gradient(to bottom, #74b9ff, #a29bfe);
+        }
+        #menu-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+        #menu-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+        #menu-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        #menu-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        #control-hint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        #restart-btn {
+            position: absolute;
+            top: 58%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 14px 32px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: #e74c3c;
+            border: 3px solid #fff;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #c0392b, 0 10px 20px rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 20;
+            transition: all 0.1s ease;
+        }
+        #restart-btn:hover {
+            background: #ff7675;
+            transform: translate(-50%, -53%);
+        }
+        #restart-btn:active {
+            transform: translate(-50%, -47%);
+            box-shadow: 0 2px 0 #c0392b;
+        }
+    </style>
+</head>
+<body>
 
-local localPlayer = Players.LocalPlayer
-local camera = Workspace.CurrentCamera
-local hitEffectEvent = ReplicatedStorage:WaitForChild("HitEffectEvent")
+<div id="game-container">
+    <button id="menu-btn" title="메뉴">⚙️</button>
+    <button id="restart-btn">RESTART</button>
+    <div id="control-hint">Press [ SPACE ] to Turn Around!</div>
+    <canvas id="gameCanvas" width="600" height="720"></canvas>
+</div>
 
-----------------------------------------------------
--- 1. 화면 흔들림 (Camera Shake) 함수
-----------------------------------------------------
-local function shakeCamera(intensity, duration)
-	local startTime = tick()
-	local connection
-	
-	connection = RunService.RenderStepped:Connect(function()
-		local elapsed = tick() - startTime
-		if elapsed >= duration then
-			connection:Disconnect()
-			return
-		end
-		
-		-- 시간이 지남에 따라 감쇠하는 흔들림 효과
-		local currentIntensity = intensity * (1 - (elapsed / duration))
-		local offsetX = math.random(-100, 100) / 100 * currentIntensity
-		local offsetY = math.random(-100, 100) / 100 * currentIntensity
-		local offsetZ = math.random(-100, 100) / 100 * currentIntensity
-		
-		camera.CFrame = camera.CFrame * CFrame.Angles(
-			math.rad(offsetX), 
-			math.rad(offsetY), 
-			math.rad(offsetZ)
-		)
-	end)
-end
+<script>
+// --- 1. Canvas 및 기본 설정 ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-----------------------------------------------------
--- 2. 히트 파티클 생성 함수
-----------------------------------------------------
-local function createHitParticle(position)
-	-- 파티클이 위치할 임시 어태치먼트 생성
-	local part = Instance.new("Part")
-	part.Size = Vector3.new(0.1, 0.1, 0.1)
-	part.Position = position
-	part.Anchored = true
-	part.CanCollide = false
-	part.Transparency = 1
-	part.Parent = Workspace
+const CANVAS_WIDTH = canvas.width;
+const CANVAS_HEIGHT = canvas.height;
 
-	local attachment = Instance.new("Attachment")
-	attachment.Parent = part
+// --- 2. 게임 상태 객체 (Game State) ---
+const gameState = {
+    score: 0,
+    combo: 0,
+    comboTimer: 0,
+    maxComboTimer: 100,
+    health: 3,
+    maxHealth: 3,
+    shield: 0,               // 실드 스택
+    fullHealthHeartCount: 0, // 풀피 상태에서 먹은 하트 카운트 (2개 모으면 실드+1)
+    
+    // 버프 아이템 타이머 (프레임 단위, 60fps 기준 600프레임 = 10초)
+    shurikenTimer: 0,        // 표창 버프 남은 시간
+    auraTimer: 0,            // 오오라 버프 남은 시간
+    
+    gameTime: 0,
+    currentEnemySpeed: 2.2,
+    isRunning: true,
+    isPaused: false
+};
 
-	-- ParticleEmitter 설정
-	local particle = Instance.new("ParticleEmitter")
-	particle.Color = ColorSequence.new(Color3.fromRGB(255, 200, 50)) -- 주황/황금색
-	particle.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.5),
-		NumberSequenceKeypoint.new(1, 0)
-	})
-	particle.Texture = "rbxassetid://243660364" -- 기본 스파크/빛 입자 텍스처
-	particle.Lifetime = NumberRange.new(0.15, 0.3)
-	particle.Speed = NumberRange.new(15, 30)
-	particle.SpreadAngle = Vector2.new(360, 360) -- 모든 방향으로 발사
-	particle.LightEmission = 0.8
-	particle.Parent = attachment
+// --- 3. 기본 엔티티 및 스토리지 ---
+let enemies = [];
+let projectiles = [];
+let playerShurikens = []; // 플레이어가 발사한 관통 표창
+let droppedItems = [];    // 바닥에 떨어진 아이템 리스트
+let spawnTimer = 0;
+let currentSpawnInterval = 80;
 
-	-- 한 번에 파티클 방출
-	particle:Emit(20)
+// 아이템 습득 로직
+function collectItem(item) {
+    if (item.type === 'HEAL') {
+        if (gameState.health < gameState.maxHealth) {
+            gameState.health++;
+        } else {
+            gameState.fullHealthHeartCount++;
+            if (gameState.fullHealthHeartCount >= 2) {
+                gameState.shield++;
+                gameState.fullHealthHeartCount = 0;
+            }
+        }
+    } else if (item.type === 'SHURIKEN') {
+        gameState.shurikenTimer = 600; // 10초
+    } else if (item.type === 'AURA') {
+        gameState.auraTimer = 600; // 10초
+    }
+}
 
-	-- 연출 후 정리 (메모리 관리)
-	task.delay(0.5, function()
-		part:Destroy()
-	end)
-end
+// 3-1. 관통 표창 클래스 (플레이어 무기)
+class PlayerShuriken {
+    constructor(x, y, dir) {
+        this.x = x;
+        this.y = y;
+        this.dir = dir; // 1: RIGHT, -1: LEFT
+        this.speed = 12;
+        this.radius = 12;
+        this.rotation = 0;
+        this.hitEnemies = new Set();
+    }
 
-----------------------------------------------------
--- 3. 서버 이벤트 수신 및 처리
-----------------------------------------------------
-hitEffectEvent.OnClientEvent:Connect(function(hitPosition, attacker)
-	-- 모든 플레이어에게 파티클 생성
-	createHitParticle(hitPosition)
-	
-	-- 내가 직접 때렸을 때만 화면 흔들림 적용
-	if attacker == localPlayer then
-		-- intensity: 흔들림 강도(도 단위), duration: 지속 시간(초)
-		shakeCamera(2.5, 0.15) 
-	end
-end)
+    update() {
+        this.x += this.speed * this.dir;
+        this.rotation += 0.3;
+
+        // 아이템 공격 타격 처리
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            if (Math.abs(item.x - this.x) < this.radius + item.radius && Math.abs(item.y - this.y) < 35) {
+                collectItem(item);
+                droppedItems.splice(i, 1);
+            }
+        }
+
+        // 적 관통 타격 처리
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            if (this.hitEnemies.has(enemy)) continue;
+
+            if (Math.abs(enemy.x - this.x) < this.radius + enemy.radius && Math.abs(enemy.y - this.y) < 30) {
+                this.hitEnemies.add(enemy);
+                enemy.hp--;
+
+                if (enemy.hp <= 0) {
+                    onEnemyKilled(enemy, i);
+                } else {
+                    enemy.x += this.dir * 20; // 넉백
+                }
+            }
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        
+        ctx.fillStyle = '#00cec9';
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, -this.radius);
+            ctx.lineTo(this.radius / 3, -this.radius / 3);
+        }
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// 3-2. 낙하 및 지상 착지 아이템 클래스
+class Item {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.targetY = player.y + player.radius - 12; // 바닥 라인 위치
+        this.type = type; // 'HEAL', 'SHURIKEN', 'AURA'
+        this.radius = 16;
+        this.velocityY = -3; // 살짝 튀어올랐다가 낙하
+        this.gravity = 0.35;
+        this.isGrounded = false;
+        this.bounceTimer = Math.random() * 10;
+    }
+
+    update() {
+        if (!this.isGrounded) {
+            this.velocityY += this.gravity;
+            this.y += this.velocityY;
+
+            // 바닥 착지
+            if (this.y >= this.targetY) {
+                this.y = this.targetY;
+                this.isGrounded = true;
+            }
+        } else {
+            this.bounceTimer += 0.08;
+        }
+    }
+
+    draw() {
+        const offsetY = this.isGrounded ? Math.sin(this.bounceTimer) * 4 : 0;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + offsetY);
+
+        let icon = '💖';
+        if (this.type === 'SHURIKEN') icon = '🥏';
+        else if (this.type === 'AURA') icon = '✨';
+
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(icon, 0, 0);
+
+        ctx.restore();
+    }
+}
+
+// 적 처치 통합 함수
+function onEnemyKilled(enemy, index) {
+    enemies.splice(index, 1);
+    gameState.combo++;
+    gameState.score += enemy.scoreValue + gameState.combo * 10;
+    gameState.comboTimer = gameState.maxComboTimer;
+
+    // 20% 확률로 아이템 드랍
+    if (Math.random() < 0.20) {
+        const itemTypes = ['HEAL', 'SHURIKEN', 'AURA'];
+        const chosenType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+        droppedItems.push(new Item(enemy.x, enemy.y, chosenType));
+    }
+}
+
+// 3-3. 플레이어
+const player = {
+    x: CANVAS_WIDTH / 2,
+    y: CANVAS_HEIGHT - 180,
+    radius: 35,
+    facing: 'RIGHT',
+    moveSpeed: 3.5,
+    attackRange: 130,
+    auraRange: 180,
+
+    punchTimer: 0,
+    punchInterval: 14,
+    isPunching: false,
+    punchProgress: 0,
+
+    reset() {
+        this.x = CANVAS_WIDTH / 2;
+        this.facing = 'RIGHT';
+        this.punchTimer = 0;
+        this.isPunching = false;
+        this.punchProgress = 0;
+    },
+
+    turnAround() {
+        this.facing = this.facing === 'RIGHT' ? 'LEFT' : 'RIGHT';
+    },
+
+    autoPunch() {
+        this.isPunching = true;
+        this.punchProgress = 1;
+
+        const dir = this.facing === 'RIGHT' ? 1 : -1;
+
+        if (gameState.shurikenTimer > 0) {
+            playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
+        }
+
+        // 1. 공격 범위 내 바닥 아이템 타격 습득 처리
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            const dist = Math.abs(item.x - this.x);
+            const isTargetInDirection = (this.facing === 'RIGHT' && item.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && item.x < this.x + 10);
+
+            if (isTargetInDirection && dist <= this.attackRange) {
+                collectItem(item);
+                droppedItems.splice(i, 1);
+            }
+        }
+
+        // 2. 투사체 파괴
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const proj = projectiles[i];
+            const dist = Math.abs(proj.x - this.x);
+            const isTargetInDirection = (this.facing === 'RIGHT' && proj.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && proj.x < this.x + 10);
+            
+            if (isTargetInDirection && dist <= this.attackRange && Math.abs(proj.y - this.y) < 40) {
+                projectiles.splice(i, 1);
+                gameState.score += 50;
+            }
+        }
+
+        // 3. 적 타격
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            const dist = Math.abs(enemy.x - this.x);
+            const isTargetInDirection = (this.facing === 'RIGHT' && enemy.x > this.x - 10) ||
+                                        (this.facing === 'LEFT' && enemy.x < this.x + 10);
+
+            if (isTargetInDirection && dist <= this.attackRange) {
+                enemy.hp--;
+                
+                if (enemy.hp <= 0) {
+                    onEnemyKilled(enemy, i);
+                } else {
+                    const knockback = enemy.side === 'LEFT' ? -25 : 25;
+                    enemy.x += knockback;
+                }
+                break;
+            }
+        }
+    },
+
+    update() {
+        if (this.facing === 'RIGHT') {
+            this.x += this.moveSpeed;
+        } else {
+            this.x -= this.moveSpeed;
+        }
+
+        const minX = this.radius + 10;
+        const maxX = CANVAS_WIDTH - this.radius - 10;
+        if (this.x < minX) this.x = minX;
+        if (this.x > maxX) this.x = maxX;
+
+        this.punchTimer++;
+        if (this.punchTimer >= this.punchInterval) {
+            this.punchTimer = 0;
+            this.autoPunch();
+        }
+
+        if (this.isPunching) {
+            this.punchProgress -= 0.25;
+            if (this.punchProgress <= 0) {
+                this.punchProgress = 0;
+                this.isPunching = false;
+            }
+        }
+    },
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        if (gameState.auraTimer > 0) {
+            ctx.fillStyle = 'rgba(9, 132, 227, 0.15)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.auraRange, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(116, 185, 255, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        if (gameState.shield > 0) {
+            ctx.strokeStyle = '#00cec9';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#d35400';
+        ctx.stroke();
+
+        const eyeOffset = this.facing === 'RIGHT' ? 10 : -10;
+        ctx.fillStyle = '#2c3e50';
+        ctx.beginPath();
+        ctx.arc(eyeOffset, -8, 5, 0, Math.PI * 2);
+        ctx.arc(eyeOffset + (this.facing === 'RIGHT' ? 12 : -12), -8, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        const punchOffset = this.punchProgress * 70;
+        const gloveBaseX = this.facing === 'RIGHT' ? this.radius + 10 : -this.radius - 10;
+        const gloveX = this.facing === 'RIGHT' ? gloveBaseX + punchOffset : gloveBaseX - punchOffset;
+
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(gloveX, 5, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#c0392b';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+};
+
+// 3-4. 궁수 포물선 화살
+class Projectile {
+    constructor(startX, startY, targetX, targetY) {
+        this.x = startX;
+        this.y = startY;
+        this.startX = startX;
+        this.startY = startY;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.radius = 8;
+        
+        this.progress = 0;
+        this.speed = 0.025;
+        this.arcHeight = 120;
+    }
+
+    update() {
+        this.progress += this.speed;
+        this.x = this.startX + (this.targetX - this.startX) * this.progress;
+        
+        const linearY = this.startY + (this.targetY - this.startY) * this.progress;
+        const arc = Math.sin(this.progress * Math.PI) * this.arcHeight;
+        this.y = linearY - arc;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#27ae60';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// 3-5. 적 클래스
+class Enemy {
+    constructor(side, type = 'NORMAL') {
+        this.side = side;
+        this.type = type;
+        this.x = side === 'LEFT' ? -30 : CANVAS_WIDTH + 30;
+        this.y = player.y;
+
+        switch (type) {
+            case 'TANKER':
+                this.radius = 36;
+                this.hp = 3;
+                this.maxHp = 3;
+                this.speedMultiplier = 0.5;
+                this.color = '#2980b9';
+                this.borderColor = '#1f618d';
+                this.damage = 1;
+                this.scoreValue = 300;
+                break;
+            case 'SPEEDER':
+                this.radius = 20;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.5;
+                this.color = '#f1c40f';
+                this.borderColor = '#f39c12';
+                this.damage = 1;
+                this.scoreValue = 150;
+                break;
+            case 'ARCHER':
+                this.radius = 25;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 0.35;
+                this.color = '#2ecc71';
+                this.borderColor = '#27ae60';
+                this.damage = 1;
+                this.scoreValue = 200;
+                this.shootTimer = 0;
+                this.shootInterval = 110;
+                break;
+            case 'KAMIKAZE':
+                this.radius = 24;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.1;
+                this.color = '#9b59b6';
+                this.borderColor = '#8e44ad';
+                this.damage = 2;
+                this.scoreValue = 250;
+                this.pulseTimer = 0;
+                break;
+            default:
+                this.radius = 25;
+                this.hp = 1;
+                this.maxHp = 1;
+                this.speedMultiplier = 1.0;
+                this.color = '#ff7675';
+                this.borderColor = '#d63031';
+                this.damage = 1;
+                this.scoreValue = 100;
+                break;
+        }
+    }
+
+    update() {
+        let slowFactor = 1.0;
+        if (gameState.auraTimer > 0 && Math.abs(this.x - player.x) <= player.auraRange) {
+            slowFactor = 0.5;
+        }
+
+        const moveSpeed = gameState.currentEnemySpeed * this.speedMultiplier * slowFactor;
+        if (this.side === 'LEFT') {
+            this.x += moveSpeed;
+        } else {
+            this.x -= moveSpeed;
+        }
+
+        if (this.type === 'ARCHER') {
+            this.shootTimer++;
+            if (this.shootTimer >= this.shootInterval) {
+                this.shootTimer = 0;
+                projectiles.push(new Projectile(this.x, this.y - 10, player.x, player.y));
+            }
+        }
+
+        if (this.type === 'KAMIKAZE') {
+            this.pulseTimer += 0.15;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        let drawRadius = this.radius;
+        if (this.type === 'KAMIKAZE') {
+            drawRadius += Math.sin(this.pulseTimer) * 3;
+        }
+
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, drawRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.borderColor;
+        ctx.stroke();
+
+        const eyeOffset = this.side === 'LEFT' ? 8 : -8;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(eyeOffset, -5, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(eyeOffset + (this.side === 'LEFT' ? 2 : -2), -5, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.type === 'TANKER' && this.hp < this.maxHp) {
+            const barW = 40;
+            const barH = 6;
+            const hpRatio = this.hp / this.maxHp;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(-barW/2, -this.radius - 14, barW, barH);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(-barW/2, -this.radius - 14, barW * hpRatio, barH);
+        }
+
+        ctx.restore();
+    }
+}
+
+// 3-6. 환경
+function drawEnvironment() {
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(0, player.y + player.radius);
+    ctx.lineTo(CANVAS_WIDTH, player.y + player.radius);
+    ctx.stroke();
+
+    ctx.fillStyle = '#6c5ce7';
+    ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
+}
+
+// 3-7. UI 및 아이템 버프 표시
+function drawUI() {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, 45);
+
+    ctx.textAlign = 'left';
+    ctx.font = '22px sans-serif';
+    let healthStr = '';
+    for (let i = 0; i < gameState.maxHealth; i++) {
+        healthStr += i < gameState.health ? '❤️ ' : '🖤 ';
+    }
+    if (gameState.shield > 0) {
+        healthStr += `🛡️x${gameState.shield}`;
+    } else if (gameState.health === gameState.maxHealth && gameState.fullHealthHeartCount > 0) {
+        healthStr += `(💗1/2)`;
+    }
+    ctx.fillText(healthStr, 20, 45);
+
+    let buffX = 20;
+    let buffY = 80;
+    ctx.font = 'bold 16px sans-serif';
+    
+    if (gameState.shurikenTimer > 0) {
+        const sec = Math.ceil(gameState.shurikenTimer / 60);
+        ctx.fillStyle = '#00cec9';
+        ctx.fillText(`🥏 표창: ${sec}s`, buffX, buffY);
+        buffY += 25;
+    }
+    if (gameState.auraTimer > 0) {
+        const sec = Math.ceil(gameState.auraTimer / 60);
+        ctx.fillStyle = '#74b9ff';
+        ctx.fillText(`✨ 오오라: ${sec}s`, buffX, buffY);
+    }
+
+    if (gameState.combo > 0) {
+        const barWidth = 220;
+        const barHeight = 14;
+        const barX = (CANVAS_WIDTH - barWidth) / 2;
+        const barY = 95;
+
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.fillText(`${gameState.combo} COMBO!`, CANVAS_WIDTH / 2, 82);
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        const fillRatio = Math.max(0, gameState.comboTimer / gameState.maxComboTimer);
+        const currentFillWidth = barWidth * fillRatio;
+
+        let fillColor = '#2ecc71';
+        if (fillRatio < 0.3) {
+            fillColor = '#e74c3c';
+        } else if (fillRatio < 0.6) {
+            fillColor = '#f39c12';
+        }
+
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY, currentFillWidth, barHeight);
+    }
+}
+
+function takePlayerDamage(damage) {
+    let remainingDamage = damage;
+    
+    while (remainingDamage > 0 && gameState.shield > 0) {
+        gameState.shield--;
+        remainingDamage--;
+    }
+
+    gameState.health -= remainingDamage;
+    gameState.combo = 0;
+    gameState.comboTimer = 0;
+
+    if (gameState.health <= 0) {
+        gameState.health = 0;
+        restartBtn.style.display = 'block';
+        menuBtn.disabled = true;
+    }
+}
+
+// --- 4. 게임 리셋 및 재시작 처리 ---
+const restartBtn = document.getElementById('restart-btn');
+const menuBtn = document.getElementById('menu-btn');
+
+function resetGame() {
+    gameState.score = 0;
+    gameState.combo = 0;
+    gameState.comboTimer = 0;
+    gameState.health = gameState.maxHealth;
+    gameState.shield = 0;
+    gameState.fullHealthHeartCount = 0;
+    gameState.shurikenTimer = 0;
+    gameState.auraTimer = 0;
+    gameState.gameTime = 0;
+    gameState.currentEnemySpeed = 2.2;
+    gameState.isPaused = false;
+    enemies = [];
+    projectiles = [];
+    playerShurikens = [];
+    droppedItems = [];
+    spawnTimer = 0;
+    currentSpawnInterval = 80;
+    player.reset();
+    
+    restartBtn.style.display = 'none';
+    menuBtn.disabled = false;
+}
+
+// --- 5. 입력 처리 ---
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (gameState.health > 0 && !e.repeat && !gameState.isPaused) {
+            player.turnAround();
+        }
+    }
+});
+
+restartBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    resetGame();
+});
+
+menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (gameState.health > 0) {
+        gameState.isPaused = !gameState.isPaused;
+    }
+});
+
+// --- 6. 메인 게임 루프 ---
+function update() {
+    if (gameState.isPaused || gameState.health <= 0) return;
+
+    gameState.gameTime++;
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
+    currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
+
+    if (gameState.shurikenTimer > 0) gameState.shurikenTimer--;
+    if (gameState.auraTimer > 0) gameState.auraTimer--;
+
+    player.update();
+
+    // 떨어진 아이템 물리 업데이트
+    droppedItems.forEach(item => item.update());
+
+    // 표창 업데이트
+    for (let i = playerShurikens.length - 1; i >= 0; i--) {
+        const shuriken = playerShurikens[i];
+        shuriken.update();
+        if (shuriken.x < -50 || shuriken.x > CANVAS_WIDTH + 50) {
+            playerShurikens.splice(i, 1);
+        }
+    }
+
+    // 콤보 게이지 감소
+    if (gameState.combo > 0) {
+        const drainRate = 0.9 + (gameState.combo * 0.09);
+        gameState.comboTimer -= drainRate;
+
+        if (gameState.comboTimer <= 0) {
+            gameState.comboTimer = 0;
+            gameState.combo = 0;
+        }
+    }
+
+    // 적 스폰
+    spawnTimer++;
+    if (spawnTimer >= currentSpawnInterval) {
+        const side = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
+        
+        const rand = Math.random();
+        let enemyType = 'NORMAL';
+        if (rand < 0.45) enemyType = 'NORMAL';
+        else if (rand < 0.65) enemyType = 'SPEEDER';
+        else if (rand < 0.80) enemyType = 'KAMIKAZE';
+        else if (rand < 0.92) enemyType = 'ARCHER';
+        else enemyType = 'TANKER';
+
+        enemies.push(new Enemy(side, enemyType));
+        spawnTimer = 0;
+    }
+
+    // 궁수 투사체 업데이트
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const proj = projectiles[i];
+        proj.update();
+
+        const dist = Math.hypot(proj.x - player.x, proj.y - player.y);
+        if (dist < player.radius + proj.radius - 5) {
+            projectiles.splice(i, 1);
+            takePlayerDamage(1);
+        } else if (proj.progress >= 1.0) {
+            projectiles.splice(i, 1);
+        }
+    }
+
+    // 적 업데이트 및 플레이어 피격 처리
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        enemy.update();
+
+        const dist = Math.abs(enemy.x - player.x);
+        if (dist < player.radius + enemy.radius - 12) {
+            const damage = enemy.damage;
+            enemies.splice(i, 1);
+            takePlayerDamage(damage);
+        }
+    }
+}
+
+function render() {
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    drawEnvironment();
+
+    // 엔티티 렌더링
+    droppedItems.forEach(item => item.draw());
+    enemies.forEach(enemy => enemy.draw());
+    projectiles.forEach(proj => proj.draw());
+    playerShurikens.forEach(shuriken => shuriken.draw());
+
+    player.draw();
+    drawUI();
+
+    // 일시정지 UI
+    if (gameState.isPaused && gameState.health > 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
+
+    // 게임 오버 UI
+    if (gameState.health <= 0) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        ctx.fillStyle = '#ff7675';
+        ctx.font = 'bold 44px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 60);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '22px sans-serif';
+        ctx.fillText(`FINAL SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+    }
+}
+
+function gameLoop() {
+    if (gameState.isRunning) {
+        update();
+        render();
+    }
+    requestAnimationFrame(gameLoop);
+}
+
+// --- 7. 실행 ---
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
