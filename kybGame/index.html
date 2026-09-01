@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>미니게임천국 - 날려날려</title>
     <style>
         * {
@@ -10,7 +10,10 @@
             margin: 0;
             padding: 0;
             user-select: none;
+            -webkit-user-select: none;
         }
+        
+        /* 뷰포트 전체 중앙 정렬 */
         body {
             background-color: #1a1a2e;
             color: #fff;
@@ -18,37 +21,50 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
         }
+
+        /* 5:6 비율(600x720)을 완벽히 유지하는 반응형 래퍼 */
         #game-container {
             position: relative;
-            width: 100%;
+            /* 화면 가로/세로 중 작은 쪽에 맞춰 5:6 비율로 자동 확장/축소 */
+            width: min(100vw, 83.33vh);
+            height: min(120vw, 100vh);
+            aspect-ratio: 5 / 6;
             max-width: 600px;
-            aspect-ratio: 600 / 720;
-            max-height: 95vh;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-height: 720px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
             border-radius: 16px;
             overflow: hidden;
             background-color: #000;
         }
+
+        /* Canvas는 컨테이너 내부를 100% 채움 */
         canvas {
             width: 100%;
             height: 100%;
             display: block;
             background: linear-gradient(to bottom, #74b9ff, #a29bfe);
         }
+
+        /* UI 엘리먼트 (컨테이너 내부에 상대 배치) */
         #menu-btn {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 44px;
-            height: 44px;
+            top: 2.5%;
+            right: 2.5%;
+            width: 8%;
+            height: 8%;
+            min-width: 36px;
+            min-height: 36px;
+            max-width: 48px;
+            max-height: 48px;
             background: rgba(255, 255, 255, 0.25);
             border: 2px solid #fff;
-            border-radius: 10px;
+            border-radius: 20%;
             color: #fff;
-            font-size: 22px;
+            font-size: 1.2rem;
             cursor: pointer;
             display: flex;
             justify-content: center;
@@ -57,36 +73,37 @@
             backdrop-filter: blur(4px);
             z-index: 10;
         }
+
         #menu-btn:hover:not(:disabled) {
             background: rgba(255, 255, 255, 0.4);
             transform: scale(1.05);
         }
-        #menu-btn:active:not(:disabled) {
-            transform: scale(0.95);
-        }
+
         #menu-btn:disabled {
             opacity: 0.3;
             cursor: not-allowed;
             pointer-events: none;
         }
+
         #control-hint {
             position: absolute;
-            bottom: 20px;
+            bottom: 3%;
             width: 100%;
             text-align: center;
-            font-size: 16px;
+            font-size: clamp(12px, 2.5vw, 16px);
             font-weight: bold;
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.85);
             pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
         }
+
         #restart-btn {
             position: absolute;
             top: 62%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 14px 32px;
-            font-size: 20px;
+            padding: 12px 28px;
+            font-size: clamp(16px, 3.5vw, 20px);
             font-weight: bold;
             color: #fff;
             background: #e74c3c;
@@ -97,11 +114,14 @@
             display: none;
             z-index: 20;
             transition: all 0.1s ease;
+            white-space: nowrap;
         }
+
         #restart-btn:hover {
             background: #ff7675;
             transform: translate(-50%, -53%);
         }
+
         #restart-btn:active {
             transform: translate(-50%, -47%);
             box-shadow: 0 2px 0 #c0392b;
@@ -114,6 +134,7 @@
     <button id="menu-btn" title="메뉴">⚙️</button>
     <button id="restart-btn">RESTART</button>
     <div id="control-hint">Press [ SPACE ] to Turn Around!</div>
+    <!-- 고정 논리 해상도 600x720 지정 -->
     <canvas id="gameCanvas" width="600" height="720"></canvas>
 </div>
 
@@ -122,8 +143,8 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const CANVAS_WIDTH = canvas.width;
-const CANVAS_HEIGHT = canvas.height;
+const CANVAS_WIDTH = 600;
+const CANVAS_HEIGHT = 720;
 const HIGH_SCORE_KEY = "fly_game_high_score";
 
 // --- 2. LocalStorage 최고 점수 불러오기 ---
@@ -132,7 +153,7 @@ function loadHighScore() {
     return saved ? parseInt(saved, 10) : 0;
 }
 
-// --- 3. 게임 상태 객체 (Game State) ---
+// --- 3. 게임 상태 객체 ---
 const gameState = {
     score: 0,
     highScore: loadHighScore(),
@@ -142,12 +163,11 @@ const gameState = {
     maxComboTimer: 100,
     health: 3,
     maxHealth: 3,
-    shield: 0,               // 실드 스택
-    fullHealthHeartCount: 0, // 풀피 상태 하트 획득 카운트
+    shield: 0,               
+    fullHealthHeartCount: 0, 
     
-    // 아이템 타이머
-    shurikenTimer: 0,        // 표창 버프
-    auraTimer: 0,            // 오오라 버프
+    shurikenTimer: 0,        
+    auraTimer: 0,            
     
     gameTime: 0,
     currentEnemySpeed: 2.2,
@@ -163,7 +183,6 @@ let droppedItems = [];
 let spawnTimer = 0;
 let currentSpawnInterval = 80;
 
-// 아이템 습득 처리
 function collectItem(item) {
     if (item.type === 'HEAL') {
         if (gameState.health < gameState.maxHealth) {
@@ -176,13 +195,12 @@ function collectItem(item) {
             }
         }
     } else if (item.type === 'SHURIKEN') {
-        gameState.shurikenTimer = 600; // 10초
+        gameState.shurikenTimer = 600; 
     } else if (item.type === 'AURA') {
-        gameState.auraTimer = 600; // 10초
+        gameState.auraTimer = 600; 
     }
 }
 
-// 점수 추가 및 최고 점수 실시간 갱신
 function addScore(amount) {
     gameState.score += amount;
     if (gameState.score > gameState.highScore) {
@@ -208,7 +226,6 @@ class PlayerShuriken {
         this.x += this.speed * this.dir;
         this.rotation += 0.3;
 
-        // 아이템 타격 습득
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const item = droppedItems[i];
             if (Math.abs(item.x - this.x) < this.radius + item.radius && Math.abs(item.y - this.y) < 35) {
@@ -217,7 +234,6 @@ class PlayerShuriken {
             }
         }
 
-        // 적 관통 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (this.hitEnemies.has(enemy)) continue;
@@ -299,14 +315,12 @@ class Item {
     }
 }
 
-// 적 처치 통합 함수
 function onEnemyKilled(enemy, index) {
     enemies.splice(index, 1);
     gameState.combo++;
     addScore(enemy.scoreValue + gameState.combo * 10);
     gameState.comboTimer = gameState.maxComboTimer;
 
-    // 20% 확률로 아이템 드랍
     if (Math.random() < 0.20) {
         const itemTypes = ['HEAL', 'SHURIKEN', 'AURA'];
         const chosenType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
@@ -351,7 +365,6 @@ const player = {
             playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
         }
 
-        // 아이템 타격 습득
         for (let i = droppedItems.length - 1; i >= 0; i--) {
             const item = droppedItems[i];
             const dist = Math.abs(item.x - this.x);
@@ -364,7 +377,6 @@ const player = {
             }
         }
 
-        // 투사체 파괴
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const proj = projectiles[i];
             const dist = Math.abs(proj.x - this.x);
@@ -377,7 +389,6 @@ const player = {
             }
         }
 
-        // 적 타격
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             const dist = Math.abs(enemy.x - this.x);
@@ -665,7 +676,6 @@ function drawEnvironment() {
 
 // 4-7. UI (점수, 최고점수, 체력, 버프, 콤보)
 function drawUI() {
-    // 점수 및 최고 점수 표시
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'center';
@@ -675,7 +685,6 @@ function drawUI() {
     ctx.fillStyle = '#f1c40f';
     ctx.fillText(`🏆 BEST: ${gameState.highScore}`, CANVAS_WIDTH / 2, 60);
 
-    // 체력 및 실드
     ctx.textAlign = 'left';
     ctx.font = '22px sans-serif';
     let healthStr = '';
@@ -689,7 +698,6 @@ function drawUI() {
     }
     ctx.fillText(healthStr, 20, 42);
 
-    // 버프 타이머
     let buffX = 20;
     let buffY = 82;
     ctx.font = 'bold 16px sans-serif';
@@ -706,7 +714,6 @@ function drawUI() {
         ctx.fillText(`✨ 오오라: ${sec}s`, buffX, buffY);
     }
 
-    // 콤보 게이지
     if (gameState.combo > 0) {
         const barWidth = 220;
         const barHeight = 14;
@@ -758,7 +765,7 @@ function takePlayerDamage(damage) {
     }
 }
 
-// --- 5. 게임 리셋 처리 ---
+// --- 5. 게임 리셋 ---
 const restartBtn = document.getElementById('restart-btn');
 const menuBtn = document.getElementById('menu-btn');
 
@@ -797,6 +804,14 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+// 터치/클릭으로도 전환 가능하도록 대응
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (gameState.health > 0 && !gameState.isPaused) {
+        player.turnAround();
+    }
+});
+
 restartBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     resetGame();
@@ -821,7 +836,6 @@ function update() {
     if (gameState.auraTimer > 0) gameState.auraTimer--;
 
     player.update();
-
     droppedItems.forEach(item => item.update());
 
     for (let i = playerShurikens.length - 1; i >= 0; i--) {
@@ -897,7 +911,6 @@ function render() {
     player.draw();
     drawUI();
 
-    // 일시정지 오버레이
     if (gameState.isPaused && gameState.health > 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -907,7 +920,6 @@ function render() {
         ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     }
 
-    // 게임 오버 오버레이 (신기록 안내 포함)
     if (gameState.health <= 0) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
