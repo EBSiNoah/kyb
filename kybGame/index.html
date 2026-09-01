@@ -13,7 +13,6 @@
             -webkit-user-select: none;
         }
         
-        /* 뷰포트 전체 중앙 정렬 */
         body {
             background-color: #1a1a2e;
             color: #fff;
@@ -26,10 +25,8 @@
             overflow: hidden;
         }
 
-        /* 5:6 비율(600x720)을 완벽히 유지하는 반응형 래퍼 */
         #game-container {
             position: relative;
-            /* 화면 가로/세로 중 작은 쪽에 맞춰 5:6 비율로 자동 확장/축소 */
             width: min(100vw, 83.33vh);
             height: min(120vw, 100vh);
             aspect-ratio: 5 / 6;
@@ -41,7 +38,6 @@
             background-color: #000;
         }
 
-        /* Canvas는 컨테이너 내부를 100% 채움 */
         canvas {
             width: 100%;
             height: 100%;
@@ -49,7 +45,6 @@
             background: linear-gradient(to bottom, #74b9ff, #a29bfe);
         }
 
-        /* UI 엘리먼트 (컨테이너 내부에 상대 배치) */
         #menu-btn {
             position: absolute;
             top: 2.5%;
@@ -134,7 +129,6 @@
     <button id="menu-btn" title="메뉴">⚙️</button>
     <button id="restart-btn">RESTART</button>
     <div id="control-hint">Press [ SPACE ] to Turn Around!</div>
-    <!-- 고정 논리 해상도 600x720 지정 -->
     <canvas id="gameCanvas" width="600" height="720"></canvas>
 </div>
 
@@ -210,7 +204,7 @@ function addScore(amount) {
     }
 }
 
-// 4-1. 관통 표창 클래스
+// 4-1. 관통 표창 클래스 (아이템 수집 로직 제거)
 class PlayerShuriken {
     constructor(x, y, dir) {
         this.x = x;
@@ -226,14 +220,7 @@ class PlayerShuriken {
         this.x += this.speed * this.dir;
         this.rotation += 0.3;
 
-        for (let i = droppedItems.length - 1; i >= 0; i--) {
-            const item = droppedItems[i];
-            if (Math.abs(item.x - this.x) < this.radius + item.radius && Math.abs(item.y - this.y) < 35) {
-                collectItem(item);
-                droppedItems.splice(i, 1);
-            }
-        }
-
+        // 적 충돌 검사만 진행 (표창에 아이템이 닿아도 먹어지지 않음)
         for (let i = enemies.length - 1; i >= 0; i--) {
             const enemy = enemies[i];
             if (this.hitEnemies.has(enemy)) continue;
@@ -365,18 +352,6 @@ const player = {
             playerShurikens.push(new PlayerShuriken(this.x + dir * 20, this.y, dir));
         }
 
-        for (let i = droppedItems.length - 1; i >= 0; i--) {
-            const item = droppedItems[i];
-            const dist = Math.abs(item.x - this.x);
-            const isTargetInDirection = (this.facing === 'RIGHT' && item.x > this.x - 10) ||
-                                        (this.facing === 'LEFT' && item.x < this.x + 10);
-
-            if (isTargetInDirection && dist <= this.attackRange) {
-                collectItem(item);
-                droppedItems.splice(i, 1);
-            }
-        }
-
         for (let i = projectiles.length - 1; i >= 0; i--) {
             const proj = projectiles[i];
             const dist = Math.abs(proj.x - this.x);
@@ -420,6 +395,17 @@ const player = {
         const maxX = CANVAS_WIDTH - this.radius - 10;
         if (this.x < minX) this.x = minX;
         if (this.x > maxX) this.x = maxX;
+
+        // 플레이어 본체 몸통과의 아이템 수집 충돌 체크
+        for (let i = droppedItems.length - 1; i >= 0; i--) {
+            const item = droppedItems[i];
+            const dist = Math.hypot(this.x - item.x, this.y - item.y);
+            
+            if (dist < this.radius + item.radius) {
+                collectItem(item);
+                droppedItems.splice(i, 1);
+            }
+        }
 
         this.punchTimer++;
         if (this.punchTimer >= this.punchInterval) {
@@ -674,7 +660,7 @@ function drawEnvironment() {
     ctx.fillRect(0, player.y + player.radius, CANVAS_WIDTH, CANVAS_HEIGHT - (player.y + player.radius));
 }
 
-// 4-7. UI (점수, 최고점수, 체력, 버프, 콤보)
+// 4-7. UI
 function drawUI() {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px sans-serif';
@@ -804,7 +790,6 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// 터치/클릭으로도 전환 가능하도록 대응
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (gameState.health > 0 && !gameState.isPaused) {
@@ -829,7 +814,7 @@ function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
     gameState.gameTime++;
-    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 150) * 0.25);
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
     if (gameState.shurikenTimer > 0) gameState.shurikenTimer--;
