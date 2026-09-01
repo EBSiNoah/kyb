@@ -829,7 +829,7 @@ function update() {
     if (gameState.isPaused || gameState.health <= 0) return;
 
     gameState.gameTime++;
-    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 900) * 0.25);
+    gameState.currentEnemySpeed = Math.min(4.5, 2.2 + (gameState.gameTime / 150) * 0.25);
     currentSpawnInterval = Math.max(25, 80 - Math.floor(gameState.gameTime / 150) * 5);
 
     if (gameState.shurikenTimer > 0) gameState.shurikenTimer--;
