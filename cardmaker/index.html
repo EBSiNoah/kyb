@@ -86,7 +86,14 @@
       opacity: 0.5;
       cursor: not-allowed;
     }
-    #imageLoader { display: none; }
+
+    /* JSON 전용 버튼 스타일 */
+    .json-export-btn { background-color: #6f42c1; color: white; }
+    .json-export-btn:hover { background-color: #59359a; }
+    .json-import-label { background-color: #fd7e14; color: white; display: inline-block; }
+    .json-import-label:hover { background-color: #e06d12; }
+
+    #imageLoader, #jsonLoader { display: none; }
 
     .aspect-controls, .text-controls {
       display: flex;
@@ -116,9 +123,7 @@
       width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
     }
 
-    /* ----------------------------------- */
-    /* 템플릿 관리 영역 스타일             */
-    /* ----------------------------------- */
+    /* 템플릿 영역 */
     .template-container {
       background: #ffffff;
       padding: 12px 20px;
@@ -158,22 +163,10 @@
       border-color: #28a745;
       background: #f0fff4;
     }
-    .slot-info {
-      display: flex;
-      flex-direction: column;
-    }
-    .slot-name {
-      font-weight: bold;
-      color: #495057;
-    }
-    .slot-status {
-      font-size: 11px;
-      color: #868e96;
-    }
-    .slot-actions {
-      display: flex;
-      gap: 4px;
-    }
+    .slot-info { display: flex; flex-direction: column; }
+    .slot-name { font-weight: bold; color: #495057; }
+    .slot-status { font-size: 11px; color: #868e96; }
+    .slot-actions { display: flex; gap: 4px; }
     .slot-btn {
       padding: 4px 8px;
       font-size: 11px;
@@ -317,15 +310,19 @@
     </div>
 
     <button id="deleteBtn" class="btn delete-btn" disabled>선택 삭제</button>
+
+    <!-- JSON Export / Import 버튼 -->
+    <button id="exportJsonBtn" class="btn json-export-btn">JSON 내보내기</button>
+    <label for="jsonLoader" class="btn json-import-label">JSON 불러오기</label>
+    <input type="file" id="jsonLoader" accept=".json,application/json">
+
     <button id="downloadBtn" class="btn download-btn">이미지 내려받기</button>
   </div>
 
   <!-- 템플릿 관리 영역 (3개 슬롯) -->
   <div class="template-container">
-    <div class="template-title">📁 템플릿 저장소 (최대 3개):</div>
+    <div class="template-title">📁 Quick 저장소:</div>
     <div class="template-slots">
-      
-      <!-- Slot 1 -->
       <div class="template-slot" id="slot-1">
         <div class="slot-info">
           <span class="slot-name">템플릿 1</span>
@@ -338,7 +335,6 @@
         </div>
       </div>
 
-      <!-- Slot 2 -->
       <div class="template-slot" id="slot-2">
         <div class="slot-info">
           <span class="slot-name">템플릿 2</span>
@@ -351,7 +347,6 @@
         </div>
       </div>
 
-      <!-- Slot 3 -->
       <div class="template-slot" id="slot-3">
         <div class="slot-info">
           <span class="slot-name">템플릿 3</span>
@@ -363,7 +358,6 @@
           <button class="slot-btn btn-clear" id="clear-btn-3" onclick="clearTemplate(3)" style="display:none;">✕</button>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -398,6 +392,8 @@
     });
 
     const imageLoader = document.getElementById('imageLoader');
+    const jsonLoader = document.getElementById('jsonLoader');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
     const addTextBtn = document.getElementById('addTextBtn');
     const textColorInput = document.getElementById('textColor');
     const textSizeInput = document.getElementById('textSize');
@@ -448,15 +444,89 @@
     });
 
     // =========================================================
-    // 템플릿 3개 저장/불러오기 핵심 기능
+    // JSON Export / Import 구현
     // =========================================================
-    function saveTemplate(slotNumber) {
+    exportJsonBtn.addEventListener('click', function() {
       if (canvas.getObjects().length === 0) {
-        showAlert('⚠️ 빈 캔버스는 템플릿으로 저장할 수 없습니다.');
+        showAlert('⚠️ 캔버스에 내보낼 내용이 없습니다.');
         return;
       }
 
-      // 현재 캔버스 데이터 JSON 변환 및 저장
+      const templateData = {
+        version: "1.0",
+        ratio: currentRatio,
+        json: canvas.toJSON()
+      };
+
+      const jsonStr = JSON.stringify(templateData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      const timeStamp = new Date().toISOString().slice(0, 10);
+      link.download = `template_${timeStamp}.json`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showAlert('💾 템플릿 JSON 파일이 다운로드되었습니다.');
+    });
+
+    jsonLoader.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+        showAlert('⚠️ JSON 파일만 업로드할 수 있습니다.');
+        jsonLoader.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const templateData = JSON.parse(event.target.result);
+
+          if (!templateData.json || !templateData.ratio) {
+            throw new Error('올바르지 않은 템플릿 구조입니다.');
+          }
+
+          // 비율 변경 및 적용
+          currentRatio = templateData.ratio;
+          aspectBtns.forEach(b => {
+            if (b.getAttribute('data-ratio') === currentRatio) {
+              b.classList.add('active');
+            } else {
+              b.classList.remove('active');
+            }
+          });
+          updateCanvasResolution(currentRatio);
+
+          // Canvas 데이터 복원
+          canvas.loadFromJSON(templateData.json, function() {
+            canvas.renderAll();
+            updateLayerPanel();
+            showAlert('📂 JSON 템플릿을 éxito 성공적으로 불러왔습니다.');
+          });
+        } catch (err) {
+          showAlert('⚠️ JSON 파일을 읽는 도중 오류가 발생했습니다.');
+        }
+      };
+      reader.readAsText(file);
+      jsonLoader.value = '';
+    });
+
+    // =========================================================
+    // Quick Storage (LocalStorage) 구현
+    // =========================================================
+    function saveTemplate(slotNumber) {
+      if (canvas.getObjects().length === 0) {
+        showAlert('⚠️ 빈 캔버스는 저장할 수 없습니다.');
+        return;
+      }
+
       const templateData = {
         ratio: currentRatio,
         json: canvas.toJSON()
@@ -464,7 +534,7 @@
 
       localStorage.setItem(`editor_template_${slotNumber}`, JSON.stringify(templateData));
       updateTemplateUI(slotNumber);
-      showAlert(`✅ 템플릿 ${slotNumber}번 슬롯에 저장되었습니다.`);
+      showAlert(`✅ Quick 슬롯 ${slotNumber}번에 저장되었습니다.`);
     }
 
     function loadTemplate(slotNumber) {
@@ -473,7 +543,6 @@
 
       const templateData = JSON.parse(dataStr);
 
-      // 비율 설정 복원
       currentRatio = templateData.ratio || '1:1';
       aspectBtns.forEach(b => {
         if (b.getAttribute('data-ratio') === currentRatio) {
@@ -484,18 +553,17 @@
       });
       updateCanvasResolution(currentRatio);
 
-      // Fabric 캔버스 객체 복원
       canvas.loadFromJSON(templateData.json, function() {
         canvas.renderAll();
         updateLayerPanel();
-        showAlert(`🔄 템플릿 ${slotNumber}번을 불러왔습니다.`);
+        showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
       });
     }
 
     function clearTemplate(slotNumber) {
       localStorage.removeItem(`editor_template_${slotNumber}`);
       updateTemplateUI(slotNumber);
-      showAlert(`🗑️ 템플릿 ${slotNumber}번이 초기화되었습니다.`);
+      showAlert(`🗑️ Quick 슬롯 ${slotNumber}번이 초기화되었습니다.`);
     }
 
     function updateTemplateUI(slotNumber) {
@@ -520,7 +588,6 @@
       }
     }
 
-    // 페이지 접속 시 3개 슬롯 상태 확인
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
     // =========================================================
@@ -590,7 +657,7 @@
     canvas.on('text:changed', updateLayerPanel);
 
     // =========================================================
-    // 이미지 업로드
+    // 이미지 업로드 및 텍스트 제어
     // =========================================================
     imageLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -635,9 +702,6 @@
       imageLoader.value = '';
     });
 
-    // =========================================================
-    // 텍스트 추가 및 조작
-    // =========================================================
     addTextBtn.addEventListener('click', function() {
       const textbox = new fabric.Textbox('문구를 입력하세요', {
         left: canvas.width / 2 - 150,
@@ -691,9 +755,6 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // =========================================================
-    // 이미지 다운로드
-    // =========================================================
     downloadBtn.addEventListener('click', function() {
       canvas.discardActiveObject();
       canvas.renderAll();
