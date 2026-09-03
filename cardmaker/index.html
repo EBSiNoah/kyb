@@ -31,22 +31,39 @@
       display: flex;
       gap: 12px;
       align-items: center;
+      flex-wrap: wrap;
     }
-    /* 기본 file input을 커스텀 버튼 스타일로 처리 */
+    /* 버튼 공통 스타일 */
+    .btn {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s, opacity 0.2s;
+    }
     .file-label {
       background-color: #007bff;
       color: white;
-      padding: 10px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background-color 0.2s;
+      display: inline-block;
     }
     .file-label:hover {
       background-color: #0056b3;
     }
+    .delete-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+    .delete-btn:hover {
+      background-color: #bd2130;
+    }
+    .delete-btn:disabled {
+      background-color: #6c757d;
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     #imageLoader {
-      display: none; /* 실제 input 요소는 숨김 */
+      display: none;
     }
     .canvas-container-wrapper {
       background: white;
@@ -58,7 +75,7 @@
       border: 1px solid #ddd;
     }
   </style>
-  <!-- Fabric.js CDN (드래그, 리사이즈, 레이어 조작용) -->
+  <!-- Fabric.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
 <body>
@@ -66,13 +83,15 @@
   <h1>이미지 편집기</h1>
 
   <div class="controls">
-    <!-- PNG, JPEG 파일만 파일 선택창에 노출 -->
-    <label for="imageLoader" class="file-label">PC에서 이미지 불러오기</label>
+    <!-- 이미지 업로드 -->
+    <label for="imageLoader" class="btn file-label">PC에서 이미지 불러오기</label>
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
+
+    <!-- 선택 삭제 버튼 (선택된 요소가 없을 땐 비활성화) -->
+    <button id="deleteBtn" class="btn delete-btn" disabled>선택 요소 삭제 (Delete)</button>
   </div>
 
   <div class="canvas-container-wrapper">
-    <!-- 작업판 (캔버스) -->
     <canvas id="canvas" width="600" height="600"></canvas>
   </div>
 
@@ -83,29 +102,26 @@
     });
 
     const imageLoader = document.getElementById('imageLoader');
+    const deleteBtn = document.getElementById('deleteBtn');
 
-    // 2. 파일 선택 이벤트 리스너
+    // =========================================================
+    // [기능 1] 이미지 업로드 및 보안 검증 (Null Byte 차단)
+    // =========================================================
     imageLoader.addEventListener('change', handleImageUpload);
 
     function handleImageUpload(e) {
       const file = e.target.files[0];
       if (!file) return;
 
-      // =========================================================
-      // [보안] Null Byte Injection 및 파일 확장자/MIME 검증
-      // =========================================================
-
-      // 1) Null Byte (\x00 / \0) 및 인코딩된 %00 포함 여부 검사
+      // Null Byte 감지
       if (file.name.includes('\0') || file.name.includes('%00')) {
         alert('올바르지 않은 파일명입니다. (Null Byte 감지)');
         imageLoader.value = '';
         return;
       }
 
-      // 2) 파일명 정제 (Null Byte 제거)
+      // 파일명 정제 및 확장자 검사
       const sanitizedFileName = file.name.replace(/\0/g, '').replace(/%00/g, '');
-
-      // 3) 확장자 검사 (마지막 마침표 뒤의 문자열을 소문자로 추출)
       const allowedExtensions = ['png', 'jpg', 'jpeg'];
       const fileExtension = sanitizedFileName.split('.').pop().toLowerCase();
 
@@ -115,7 +131,7 @@
         return;
       }
 
-      // 4) 브라우저 감지 MIME Type 2중 검증
+      // MIME Type 검증
       const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
       if (!validMimeTypes.includes(file.type)) {
         alert('지원하지 않는 파일 형식입니다.');
@@ -123,20 +139,15 @@
         return;
       }
 
-      // =========================================================
-      // [이미지 처리] FileReader로 데이터 읽어 캔버스에 추가
-      // =========================================================
+      // 캔버스에 이미지 배치
       const reader = new FileReader();
-
       reader.onload = function(event) {
         const imgObj = new Image();
         imgObj.src = event.target.result;
 
         imgObj.onload = function() {
-          // Fabric.js 이미지 객체 생성
           const fabricImg = new fabric.Image(imgObj);
 
-          // 작업판(600x600) 크기 대비 비율에 맞춰 축소
           const maxWidth = canvas.width * 0.8;
           const maxHeight = canvas.height * 0.8;
 
@@ -144,22 +155,64 @@
             fabricImg.scaleToWidth(maxWidth);
           }
 
-          // 캔버스 중앙에 배치
           canvas.add(fabricImg);
           fabricImg.center();
           fabricImg.setCoords();
 
-          // 새로 올린 이미지를 활성화(선택) 상태로 변경
           canvas.setActiveObject(fabricImg);
           canvas.renderAll();
         };
       };
 
       reader.readAsDataURL(file);
-
-      // 동일한 파일 재선택 시에도 change 이벤트가 정상 발동되도록 초기화
       imageLoader.value = '';
     }
+
+    // =========================================================
+    // [기능 2] 선택 요소 삭제 로직
+    // =========================================================
+
+    // 선택된 요소를 삭제하는 함수 (단일/다중 선택 모두 지원)
+    function deleteSelectedObjects() {
+      const activeObjects = canvas.getActiveObjects();
+
+      if (activeObjects && activeObjects.length > 0) {
+        // 선택 해제 후 캔버스에서 개체 삭제
+        canvas.discardActiveObject();
+        activeObjects.forEach(obj => {
+          canvas.remove(obj);
+        });
+        canvas.requestRenderAll();
+      }
+    }
+
+    // 삭제 버튼 클릭 이벤트
+    deleteBtn.addEventListener('click', deleteSelectedObjects);
+
+    // 키보드 Delete / Backspace 키 누름 이벤트 감지
+    document.addEventListener('keydown', function(e) {
+      // 텍스트 편집 모드 중이거나 input 영역 입력 중일 때는 삭제 동작 제외
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && activeObject.isEditing) return;
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelectedObjects();
+      }
+    });
+
+    // =========================================================
+    // [기능 3] 캔버스 선택 상태에 따른 삭제 버튼 활성화/비활성화
+    // =========================================================
+    function updateDeleteButtonState() {
+      const activeObjects = canvas.getActiveObjects();
+      deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
+    }
+
+    // 요소가 선택되거나 선택 해제될 때 버튼 상태 갱신
+    canvas.on('selection:created', updateDeleteButtonState);
+    canvas.on('selection:updated', updateDeleteButtonState);
+    canvas.on('selection:cleared', updateDeleteButtonState);
   </script>
 </body>
 </html>
