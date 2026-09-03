@@ -22,6 +22,29 @@
       margin-bottom: 20px;
       color: #333;
     }
+
+    /* 화면 상단 경고 메시지 바 (Notification Banner) */
+    #alertBanner {
+      display: none; /* 기본 상태는 숨김 */
+      width: 100%;
+      max-width: 600px;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .controls {
       background: #ffffff;
       padding: 15px 20px;
@@ -72,7 +95,6 @@
     #imageLoader {
       display: none;
     }
-    /* 텍스트 스타일 조작 패널 */
     .text-controls {
       display: flex;
       align-items: center;
@@ -115,15 +137,15 @@
 
   <h1>이미지 편집기</h1>
 
+  <!-- 웹 화면에 표시될 경고 메시지 영역 -->
+  <div id="alertBanner"></div>
+
   <div class="controls">
-    <!-- 이미지 불러오기 -->
     <label for="imageLoader" class="btn file-label">PC에서 이미지 불러오기</label>
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
 
-    <!-- 글자 상자 추가 버튼 -->
     <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
 
-    <!-- 텍스트 스타일 조작 (색상/크기) -->
     <div class="text-controls">
       <label for="textColor">색상:</label>
       <input type="color" id="textColor" value="#000000">
@@ -132,7 +154,6 @@
       <input type="number" id="textSize" value="30" min="10" max="200">
     </div>
 
-    <!-- 선택 요소 삭제 버튼 -->
     <button id="deleteBtn" class="btn delete-btn" disabled>선택 요소 삭제</button>
   </div>
 
@@ -141,7 +162,6 @@
   </div>
 
   <script>
-    // 1. Fabric.js 캔버스 초기화
     const canvas = new fabric.Canvas('canvas', {
       backgroundColor: '#ffffff'
     });
@@ -151,9 +171,24 @@
     const textColorInput = document.getElementById('textColor');
     const textSizeInput = document.getElementById('textSize');
     const deleteBtn = document.getElementById('deleteBtn');
+    const alertBanner = document.getElementById('alertBanner');
+
+    let alertTimeout = null;
+
+    // 화면 상단에 경고 메시지를 표시하는 함수
+    function showAlert(message) {
+      alertBanner.textContent = message;
+      alertBanner.style.display = 'block';
+
+      // 이전 타이머가 있다면 취소 후 4초 뒤 자동 숨김 처리
+      if (alertTimeout) clearTimeout(alertTimeout);
+      alertTimeout = setTimeout(() => {
+        alertBanner.style.display = 'none';
+      }, 4000);
+    }
 
     // =========================================================
-    // 2. 이미지 업로드 및 보안 검증
+    // 이미지 업로드 및 경고 메시지 출력
     // =========================================================
     imageLoader.addEventListener('change', handleImageUpload);
 
@@ -161,29 +196,33 @@
       const file = e.target.files[0];
       if (!file) return;
 
+      // 1) Null Byte 차단 및 화면 경고
       if (file.name.includes('\0') || file.name.includes('%00')) {
-        alert('올바르지 않은 파일명입니다.');
+        showAlert('⚠️ 올바르지 않은 파일명 형식입니다. (Null Byte 감지)');
         imageLoader.value = '';
         return;
       }
 
+      // 2) 확장자 추출 및 화면 경고
       const sanitizedFileName = file.name.replace(/\0/g, '').replace(/%00/g, '');
       const allowedExtensions = ['png', 'jpg', 'jpeg'];
       const fileExtension = sanitizedFileName.split('.').pop().toLowerCase();
 
       if (!allowedExtensions.includes(fileExtension)) {
-        alert('PNG 또는 JPEG 파일만 업로드할 수 있습니다.');
+        showAlert(`⚠️ [.${fileExtension}] 확장자는 허용되지 않습니다. PNG 또는 JPEG 파일만 업로드해주세요.`);
         imageLoader.value = '';
         return;
       }
 
+      // 3) MIME Type 검증 및 화면 경고
       const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
       if (!validMimeTypes.includes(file.type)) {
-        alert('지원하지 않는 파일 형식입니다.');
+        showAlert('⚠️ 지원하지 않는 파일 형식(MIME Type)입니다.');
         imageLoader.value = '';
         return;
       }
 
+      // 파일 로드 및 캔버스 추가
       const reader = new FileReader();
       reader.onload = function(event) {
         const imgObj = new Image();
@@ -213,17 +252,16 @@
     }
 
     // =========================================================
-    // 3. 글자 상자(텍스트) 추가 기능
+    // 텍스트 추가 / 조작
     // =========================================================
     addTextBtn.addEventListener('click', function() {
-      // 입력 가능한 Textbox 객체 생성
       const textbox = new fabric.Textbox('문구를 입력하세요', {
         left: 200,
         top: 250,
         width: 200,
         fontSize: parseInt(textSizeInput.value, 10) || 30,
         fill: textColorInput.value,
-        splitByGrapheme: true // 한글 입력을 자연스럽게 줄바꿈 처리
+        splitByGrapheme: true
       });
 
       canvas.add(textbox);
@@ -231,11 +269,6 @@
       canvas.renderAll();
     });
 
-    // =========================================================
-    // 4. 텍스트 옵션 변경 (색상 / 크기)
-    // =========================================================
-
-    // 색상 변경 시
     textColorInput.addEventListener('input', function() {
       const activeObject = canvas.getActiveObject();
       if (activeObject && activeObject.type === 'textbox') {
@@ -244,7 +277,6 @@
       }
     });
 
-    // 글자 크기 변경 시
     textSizeInput.addEventListener('input', function() {
       const activeObject = canvas.getActiveObject();
       if (activeObject && activeObject.type === 'textbox') {
@@ -253,7 +285,6 @@
       }
     });
 
-    // 선택된 텍스트 요소가 바뀔 때 상단 컨트롤 값도 맞춰서 업데이트
     canvas.on('selection:created', syncTextControls);
     canvas.on('selection:updated', syncTextControls);
 
@@ -266,7 +297,7 @@
     }
 
     // =========================================================
-    // 5. 선택 요소 삭제 기능 및 버튼 상태 동기화
+    // 선택 요소 삭제 기능
     // =========================================================
     deleteBtn.addEventListener('click', function() {
       const activeObjects = canvas.getActiveObjects();
