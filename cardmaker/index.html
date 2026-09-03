@@ -17,7 +17,6 @@
       flex-direction: column;
       align-items: center;
       padding: 20px;
-      /* 스크롤 생김 방지 */
       max-height: 100vh;
       overflow-y: auto;
     }
@@ -180,9 +179,15 @@
       width: 100%;
     }
 
-    /* 캔버스 화면 크기를 500x500 박스 안에 고정 */
+    /* 캔버스 상자 내부도 체크판 형태 표현 */
     .canvas-container-wrapper {
-      background: #e9ecef;
+      background-color: #ffffff;
+      background-image: linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
+                        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
+                        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
       width: 520px;
       height: 520px;
       border-radius: 8px;
@@ -190,17 +195,24 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      overflow: hidden; /* 스크롤바가 생기지 않도록 고정 */
+      overflow: hidden;
       flex-shrink: 0;
     }
-    canvas {
-      border: 1px solid #ccc;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    
+    /* 캔버스 자체 체크판 패턴 적용 (투명 나타냄) */
+    .canvas-container {
+      background-image: linear-gradient(45deg, #eeeeee 25%, transparent 25%), 
+                        linear-gradient(-45deg, #eeeeee 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #eeeeee 75%), 
+                        linear-gradient(-45deg, transparent 75%, #eeeeee 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 
     .layer-panel {
       flex: 1;
-      height: 520px; /* 캔버스 상자와 동일하게 높이 고정 */
+      height: 520px;
       background: white;
       border-radius: 8px;
       padding: 16px;
@@ -346,7 +358,6 @@
   </div>
 
   <div class="workspace-container">
-    <!-- 고정 영역 (스크롤 발생하지 않는 500px 규격) -->
     <div class="canvas-container-wrapper">
       <canvas id="canvas"></canvas>
     </div>
@@ -363,7 +374,6 @@
   </div>
 
   <script>
-    // 내보낼 실제 픽셀 해상도
     const RESOLUTION_MAP = {
       '1:1': { width: 1080, height: 1080 },
       '4:5': { width: 1080, height: 1350 },
@@ -371,11 +381,11 @@
     };
 
     let currentRatio = '1:1';
-    // 화면에 표시될 캔버스 박스의 최대 너비/높이 고정
     const DISPLAY_MAX_SIZE = 480; 
 
+    // Fabric.js 배경색을 null로 지정하여 투명으로 초기화
     const canvas = new fabric.Canvas('canvas', {
-      backgroundColor: '#ffffff'
+      backgroundColor: null
     });
 
     const imageLoader = document.getElementById('imageLoader');
@@ -401,16 +411,13 @@
       alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
     }
 
-    // 캔버스 크기는 고정 영역 내에서 해상도 비율만 변경
     function updateCanvasResolution(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
 
-      // 1. 실제 Fabric.js 내부 캔버스 해상도 변경 (출력용 고해상도)
       canvas.setWidth(targetRes.width);
       canvas.setHeight(targetRes.height);
 
-      // 2. 고정 크기 상자(480px) 안에서 스크롤 없이 축소하여 표시
       const scale = Math.min(DISPLAY_MAX_SIZE / targetRes.width, DISPLAY_MAX_SIZE / targetRes.height);
 
       canvas.setDimensions({
@@ -433,9 +440,7 @@
       });
     });
 
-    // =========================================================
     // JSON Export / Import
-    // =========================================================
     exportJsonBtn.addEventListener('click', function() {
       const hasObjects = canvas.getObjects().length > 0;
       const savedTemplates = {};
@@ -502,6 +507,7 @@
             updateCanvasResolution(currentRatio);
 
             canvas.loadFromJSON(targetCanvasData.json, function() {
+              canvas.backgroundColor = null; // 배경 복원 시 투명 유지
               canvas.renderAll();
               updateLayerPanel();
             });
@@ -516,9 +522,7 @@
       jsonLoader.value = '';
     });
 
-    // =========================================================
-    // Quick Storage (템플릿 저장/불러오기)
-    // =========================================================
+    // Quick Storage
     function saveTemplate(slotNumber) {
       if (canvas.getObjects().length === 0) {
         showAlert('⚠️ 빈 캔버스는 저장할 수 없습니다.');
@@ -542,6 +546,7 @@
       updateCanvasResolution(currentRatio);
 
       canvas.loadFromJSON(templateData.json, function() {
+        canvas.backgroundColor = null;
         canvas.renderAll();
         updateLayerPanel();
         showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
@@ -578,9 +583,7 @@
 
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
-    // =========================================================
-    // 레이어 관리 및 캔버스 제어
-    // =========================================================
+    // 레이어 및 이벤트
     function updateLayerPanel() {
       const objects = canvas.getObjects();
       layerListEl.innerHTML = '';
@@ -717,6 +720,7 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
+    // 투명 배경을 포함한 PNG 다운로드
     downloadBtn.addEventListener('click', function() {
       canvas.discardActiveObject();
       canvas.renderAll();
