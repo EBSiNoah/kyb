@@ -23,7 +23,6 @@
       color: #333;
     }
 
-    /* 화면 상단 경고 메시지 바 */
     #alertBanner {
       display: none;
       width: 100%;
@@ -55,7 +54,7 @@
       gap: 12px;
       align-items: center;
       flex-wrap: wrap;
-      max-width: 820px;
+      max-width: 900px;
       width: 100%;
     }
     .btn {
@@ -72,45 +71,34 @@
       color: white;
       display: inline-block;
     }
-    .file-label:hover {
-      background-color: #0056b3;
-    }
-    .text-btn {
-      background-color: #28a745;
-      color: white;
-    }
-    .text-btn:hover {
-      background-color: #218838;
-    }
-    .delete-btn {
-      background-color: #dc3545;
-      color: white;
-    }
-    .delete-btn:hover {
-      background-color: #bd2130;
-    }
+    .file-label:hover { background-color: #0056b3; }
+    
+    .text-btn { background-color: #28a745; color: white; }
+    .text-btn:hover { background-color: #218838; }
+
+    .download-btn { background-color: #17a2b8; color: white; }
+    .download-btn:hover { background-color: #138496; }
+
+    .delete-btn { background-color: #dc3545; color: white; }
+    .delete-btn:hover { background-color: #bd2130; }
     .delete-btn:disabled {
       background-color: #6c757d;
       opacity: 0.5;
       cursor: not-allowed;
     }
-    #imageLoader {
-      display: none;
-    }
+    #imageLoader { display: none; }
 
-    /* 비율 조절 버튼 스타일 */
-    .aspect-controls {
+    .aspect-controls, .text-controls {
       display: flex;
       align-items: center;
       gap: 6px;
       border-left: 2px solid #eee;
       padding-left: 12px;
     }
-    .aspect-controls label {
+    .aspect-controls label, .text-controls label {
       font-size: 13px;
       font-weight: bold;
       color: #555;
-      margin-right: 4px;
     }
     .aspect-btn {
       background-color: #6c757d;
@@ -119,51 +107,31 @@
       border-radius: 4px;
       font-size: 13px;
     }
-    .aspect-btn.active {
-      background-color: #17a2b8;
-    }
+    .aspect-btn.active { background-color: #007bff; }
 
-    .text-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-left: 2px solid #eee;
-      padding-left: 12px;
-    }
-    .text-controls label {
-      font-size: 13px;
-      font-weight: bold;
-      color: #555;
-    }
     .text-controls input[type="color"] {
-      border: none;
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
-      background: none;
+      border: none; width: 32px; height: 32px; cursor: pointer; background: none;
     }
     .text-controls input[type="number"] {
-      width: 60px;
-      padding: 6px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
     }
+
     .canvas-container-wrapper {
-      background: white;
-      padding: 10px;
+      background: #e9ecef;
+      padding: 20px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       display: flex;
       justify-content: center;
       align-items: center;
-      max-width: 100%;
-      overflow-x: auto; /* 화면이 작아져도 스크롤 처리 */
+      min-width: 500px;
+      min-height: 500px;
     }
     canvas {
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
   </style>
-  <!-- Fabric.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
 <body>
@@ -173,17 +141,16 @@
   <div id="alertBanner"></div>
 
   <div class="controls">
-    <label for="imageLoader" class="btn file-label">PC에서 이미지 불러오기</label>
+    <label for="imageLoader" class="btn file-label">이미지 불러오기</label>
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
 
     <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
 
-    <!-- 가로 중심 비율 조절 버튼 그룹 -->
     <div class="aspect-controls">
-      <label>비율:</label>
-      <button class="btn aspect-btn active" data-ratio="16:9">16:9 (가로형)</button>
-      <button class="btn aspect-btn" data-ratio="5:4">5:4</button>
-      <button class="btn aspect-btn" data-ratio="1:1">1:1</button>
+      <label>해상도 비율:</label>
+      <button class="btn aspect-btn active" data-ratio="1:1">1:1</button>
+      <button class="btn aspect-btn" data-ratio="4:5">4:5</button>
+      <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
     </div>
 
     <div class="text-controls">
@@ -191,18 +158,28 @@
       <input type="color" id="textColor" value="#000000">
 
       <label for="textSize">크기:</label>
-      <input type="number" id="textSize" value="30" min="10" max="200">
+      <input type="number" id="textSize" value="40" min="10" max="200">
     </div>
 
-    <button id="deleteBtn" class="btn delete-btn" disabled>선택 요소 삭제</button>
+    <button id="deleteBtn" class="btn delete-btn" disabled>선택 삭제</button>
+    <button id="downloadBtn" class="btn download-btn">이미지 내려받기</button>
   </div>
 
   <div class="canvas-container-wrapper">
-    <!-- 가로 길이를 기준(800px)으로 초기 설정 -->
-    <canvas id="canvas" width="800" height="450"></canvas>
+    <canvas id="canvas"></canvas>
   </div>
 
   <script>
+    // 해상도 기준 설정 (내려받을 고해상도 원본 크기 고정)
+    const RESOLUTION_MAP = {
+      '1:1': { width: 1080, height: 1080 },
+      '4:5': { width: 1080, height: 1350 },
+      '9:16': { width: 1080, height: 1920 }
+    };
+
+    let currentRatio = '1:1';
+    const PREVIEW_MAX_SIZE = 500; // 미리보기 화면 상 최대 노출 크기(px)
+
     const canvas = new fabric.Canvas('canvas', {
       backgroundColor: '#ffffff'
     });
@@ -212,6 +189,7 @@
     const textColorInput = document.getElementById('textColor');
     const textSizeInput = document.getElementById('textSize');
     const deleteBtn = document.getElementById('deleteBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
     const alertBanner = document.getElementById('alertBanner');
     const aspectBtns = document.querySelectorAll('.aspect-btn');
 
@@ -220,95 +198,64 @@
     function showAlert(message) {
       alertBanner.textContent = message;
       alertBanner.style.display = 'block';
-
       if (alertTimeout) clearTimeout(alertTimeout);
-      alertTimeout = setTimeout(() => {
-        alertBanner.style.display = 'none';
-      }, 4000);
+      alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
     }
 
     // =========================================================
-    // 가로 맞춤 비율 변경 기능 (800px 가로 기준)
+    // 해상도 및 화면 스케일 일치화 핵심 로직
     // =========================================================
-    const BASE_WIDTH = 800; // 가로 기준 크기를 800px로 확장
+    function updateCanvasResolution(ratioKey) {
+      currentRatio = ratioKey;
+      const targetRes = RESOLUTION_MAP[ratioKey];
 
+      // 1. 내부 논리 캔버스 해상도 고정
+      canvas.setWidth(targetRes.width);
+      canvas.setHeight(targetRes.height);
+
+      // 2. 화면 미리보기용 스케일 계산 (가장 긴 축을 PREVIEW_MAX_SIZE에 맞춤)
+      const scale = Math.min(PREVIEW_MAX_SIZE / targetRes.width, PREVIEW_MAX_SIZE / targetRes.height);
+
+      // 3. CSS 크기만 조정하여 줄바꿈/위치 변형 문제 원천 차단
+      canvas.setDimensions({
+        width: targetRes.width * scale,
+        height: targetRes.height * scale
+      }, { cssOnly: true });
+
+      canvas.renderAll();
+    }
+
+    // 초기 해상도 적용 (1:1)
+    updateCanvasResolution('1:1');
+
+    // 비율 변경 이벤트
     aspectBtns.forEach(btn => {
       btn.addEventListener('click', function() {
         const ratio = this.getAttribute('data-ratio');
-        
-        let newWidth = BASE_WIDTH;
-        let newHeight = BASE_WIDTH;
+        updateCanvasResolution(ratio);
 
-        // 가로 800px 기준으로 세로 비율 계산
-        if (ratio === '16:9') {
-          newWidth = 800;
-          newHeight = 450; // (800 / 16) * 9
-        } else if (ratio === '5:4') {
-          newWidth = 800;
-          newHeight = 640; // (800 / 5) * 4
-        } else if (ratio === '1:1') {
-          newWidth = 800;
-          newHeight = 800;
-        }
-
-        // 현재 크기와 새 크기 간의 스케일 비율 계산
-        const scaleX = newWidth / canvas.width;
-        const scaleY = newHeight / canvas.height;
-
-        // 캔버스 크기 변경
-        canvas.setWidth(newWidth);
-        canvas.setHeight(newHeight);
-
-        // 캔버스 내부 요소들의 위치와 크기를 비율에 맞춰 자동 스케일링
-        const objects = canvas.getObjects();
-        for (let i = 0; i < objects.length; i++) {
-          const obj = objects[i];
-          
-          obj.set({
-            left: obj.left * scaleX,
-            top: obj.top * scaleY,
-            scaleX: obj.scaleX * scaleX,
-            scaleY: obj.scaleY * scaleY
-          });
-          obj.setCoords();
-        }
-
-        canvas.renderAll();
-
-        // 버튼 활성화 스타일 전환
         aspectBtns.forEach(b => b.classList.remove('active'));
         this.classList.add('active');
       });
     });
 
     // =========================================================
-    // 이미지 업로드 및 보안 검증
+    // 이미지 업로드
     // =========================================================
-    imageLoader.addEventListener('change', handleImageUpload);
-
-    function handleImageUpload(e) {
+    imageLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
 
       if (file.name.includes('\0') || file.name.includes('%00')) {
-        showAlert('⚠️ 올바르지 않은 파일명 형식입니다. (Null Byte 감지)');
+        showAlert('⚠️ 올바르지 않은 파일명 형식입니다.');
         imageLoader.value = '';
         return;
       }
 
-      const sanitizedFileName = file.name.replace(/\0/g, '').replace(/%00/g, '');
       const allowedExtensions = ['png', 'jpg', 'jpeg'];
-      const fileExtension = sanitizedFileName.split('.').pop().toLowerCase();
-
-      if (!allowedExtensions.includes(fileExtension)) {
-        showAlert(`⚠️ [.${fileExtension}] 확장자는 허용되지 않습니다. PNG 또는 JPEG 파일만 업로드해주세요.`);
-        imageLoader.value = '';
-        return;
-      }
-
-      const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
-      if (!validMimeTypes.includes(file.type)) {
-        showAlert('⚠️ 지원하지 않는 파일 형식(MIME Type)입니다.');
+      const fileExtension = file.name.split('.').pop().toLowerCase();
+      if (!allowedExtensions.includes(fileExtension) || !['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+        showAlert('⚠️ PNG 또는 JPEG 이미지 파일만 업로드할 수 있습니다.');
         imageLoader.value = '';
         return;
       }
@@ -317,10 +264,10 @@
       reader.onload = function(event) {
         const imgObj = new Image();
         imgObj.src = event.target.result;
-
         imgObj.onload = function() {
           const fabricImg = new fabric.Image(imgObj);
-
+          
+          // 캔버스 크기에 맞게 이미지 비율 자동 조정
           const maxWidth = canvas.width * 0.8;
           const maxHeight = canvas.height * 0.8;
 
@@ -331,25 +278,23 @@
           canvas.add(fabricImg);
           fabricImg.center();
           fabricImg.setCoords();
-
           canvas.setActiveObject(fabricImg);
           canvas.renderAll();
         };
       };
-
       reader.readAsDataURL(file);
       imageLoader.value = '';
-    }
+    });
 
     // =========================================================
-    // 텍스트 추가 / 조작
+    // 텍스트 추가 및 컨트롤
     // =========================================================
     addTextBtn.addEventListener('click', function() {
       const textbox = new fabric.Textbox('문구를 입력하세요', {
-        left: canvas.width / 2 - 100,
-        top: canvas.height / 2 - 20,
-        width: 200,
-        fontSize: parseInt(textSizeInput.value, 10) || 30,
+        left: canvas.width / 2 - 150,
+        top: canvas.height / 2 - 30,
+        width: 300,
+        fontSize: parseInt(textSizeInput.value, 10) || 40,
         fill: textColorInput.value,
         splitByGrapheme: true
       });
@@ -370,7 +315,7 @@
     textSizeInput.addEventListener('input', function() {
       const activeObject = canvas.getActiveObject();
       if (activeObject && activeObject.type === 'textbox') {
-        activeObject.set('fontSize', parseInt(this.value, 10) || 20);
+        activeObject.set('fontSize', parseInt(this.value, 10) || 40);
         canvas.renderAll();
       }
     });
@@ -386,29 +331,47 @@
       }
     }
 
-    // =========================================================
-    // 선택 요소 삭제 기능
-    // =========================================================
+    // 삭제 기능
     deleteBtn.addEventListener('click', function() {
       const activeObjects = canvas.getActiveObjects();
-
       if (activeObjects && activeObjects.length > 0) {
         canvas.discardActiveObject();
-        activeObjects.forEach(obj => {
-          canvas.remove(obj);
-        });
+        activeObjects.forEach(obj => canvas.remove(obj));
         canvas.requestRenderAll();
       }
     });
+
+    canvas.on('selection:created', updateDeleteButtonState);
+    canvas.on('selection:updated', updateDeleteButtonState);
+    canvas.on('selection:cleared', updateDeleteButtonState);
 
     function updateDeleteButtonState() {
       const activeObjects = canvas.getActiveObjects();
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    canvas.on('selection:created', updateDeleteButtonState);
-    canvas.on('selection:updated', updateDeleteButtonState);
-    canvas.on('selection:cleared', updateDeleteButtonState);
+    // =========================================================
+    // 이미지 내려받기 기능 (미리보기와 100% 동일한 해상도로 출력)
+    // =========================================================
+    downloadBtn.addEventListener('click', function() {
+      // 선택 영역 테두리 해제
+      canvas.discardActiveObject();
+      canvas.renderAll();
+
+      // 고해상도 이미지 데이터 추출
+      const dataURL = canvas.toDataURL({
+        format: 'png',
+        quality: 1.0,
+        multiplier: 1 // 실제 설정된 해상도 1080p 기준으로 정확히 추출
+      });
+
+      const link = document.createElement('a');
+      link.download = `result_${currentRatio.replace(':', '_')}.png`;
+      link.href = dataURL;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
   </script>
 </body>
 </html>
