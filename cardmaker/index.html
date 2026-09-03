@@ -170,71 +170,70 @@
     .btn-clear { background: #dc3545; color: white; }
     .btn-clear:hover { background: #bd2130; }
 
-    /* 작업 공간 및 고정 스크롤 영역 */
+    /* 전체 메인 워크스페이스 레이아웃 */
     .workspace-container {
       display: flex;
-      gap: 20px;
+      gap: 16px;
       align-items: flex-start;
       max-width: 1100px;
       width: 100%;
     }
 
-    /* 캔버스 상자 내부도 체크판 형태 표현 */
+    /* 확장된 캔버스 상자 패널 (680px) */
     .canvas-container-wrapper {
-      background-color: #ffffff;
-      background-image: linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
-                        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
-                        linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
-                        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
-      background-size: 16px 16px;
-      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-      width: 520px;
-      height: 520px;
+      background-color: #1e1e24; /* 작업대 배경 다크톤으로 구분 */
+      width: 680px;
+      height: 680px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.15);
       display: flex;
       justify-content: center;
       align-items: center;
       overflow: hidden;
       flex-shrink: 0;
+      position: relative;
     }
     
-    /* 캔버스 자체 체크판 패턴 적용 (투명 나타냄) */
+    /* 캔버스 내부 작업 영역 (투명 체크판 패턴) */
     .canvas-container {
-      background-image: linear-gradient(45deg, #eeeeee 25%, transparent 25%), 
-                        linear-gradient(-45deg, #eeeeee 25%, transparent 25%), 
-                        linear-gradient(45deg, transparent 75%, #eeeeee 75%), 
-                        linear-gradient(-45deg, transparent 75%, #eeeeee 75%);
-      background-size: 20px 20px;
-      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      background-image: linear-gradient(45deg, #cccccc 25%, transparent 25%), 
+                        linear-gradient(-45deg, #cccccc 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #cccccc 75%), 
+                        linear-gradient(-45deg, transparent 75%, #cccccc 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+      background-color: #ffffff;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.2);
     }
 
+    /* 축소된 레이어 패널 (240px 너비) */
     .layer-panel {
-      flex: 1;
-      height: 520px;
+      width: 240px;
+      height: 680px; /* 캔버스 상자와 동일 높이 맞춤 */
       background: white;
       border-radius: 8px;
-      padding: 16px;
+      padding: 14px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       display: flex;
       flex-direction: column;
+      flex-shrink: 0;
     }
     .layer-panel h3 {
-      font-size: 15px;
+      font-size: 14px;
       color: #333;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 2px solid #f4f6f8;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     .layer-panel .layer-count {
-      font-size: 11px;
+      font-size: 10px;
       background-color: #e9ecef;
-      padding: 2px 8px;
-      border-radius: 12px;
+      padding: 2px 6px;
+      border-radius: 10px;
       color: #6c757d;
     }
     .layer-list {
@@ -249,12 +248,12 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 10px;
+      padding: 6px 8px;
       background: #f8f9fa;
       border: 1px solid #e9ecef;
-      border-radius: 6px;
+      border-radius: 5px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
     }
     .layer-item:hover { background: #eef2f7; }
     .layer-item.active {
@@ -266,17 +265,17 @@
     .layer-info {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
     .layer-delete-btn {
-      background: none; border: none; color: #dc3545; font-size: 13px;
-      cursor: pointer; padding: 2px 4px; opacity: 0.6;
+      background: none; border: none; color: #dc3545; font-size: 12px;
+      cursor: pointer; padding: 2px; opacity: 0.6;
     }
     .layer-delete-btn:hover { opacity: 1; }
-    .empty-layers { text-align: center; color: #adb5bd; font-size: 12px; padding: 30px 0; }
+    .empty-layers { text-align: center; color: #adb5bd; font-size: 11px; padding: 30px 0; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
@@ -358,10 +357,12 @@
   </div>
 
   <div class="workspace-container">
+    <!-- 크기 확대한 캔버스 및 내부에 비율별 작업 공간 표시 -->
     <div class="canvas-container-wrapper">
       <canvas id="canvas"></canvas>
     </div>
 
+    <!-- 간소화된 레이어 선택 영역 -->
     <div class="layer-panel">
       <h3>
         레이어 목록
@@ -381,9 +382,9 @@
     };
 
     let currentRatio = '1:1';
-    const DISPLAY_MAX_SIZE = 480; 
+    // 키워진 프레임(680px) 안에서 여백(40px)을 남긴 최대 작업 크기
+    const DISPLAY_MAX_SIZE = 640; 
 
-    // Fabric.js 배경색을 null로 지정하여 투명으로 초기화
     const canvas = new fabric.Canvas('canvas', {
       backgroundColor: null
     });
@@ -411,13 +412,16 @@
       alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
     }
 
+    // 작업 공간 내부 해상도 비율 변경 로직
     function updateCanvasResolution(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
 
+      // 1. Fabric.js 해상도 적용
       canvas.setWidth(targetRes.width);
       canvas.setHeight(targetRes.height);
 
+      // 2. 캔버스 프레임 내부에 비율에 맞춘 화면 축소 스케일링
       const scale = Math.min(DISPLAY_MAX_SIZE / targetRes.width, DISPLAY_MAX_SIZE / targetRes.height);
 
       canvas.setDimensions({
@@ -507,7 +511,7 @@
             updateCanvasResolution(currentRatio);
 
             canvas.loadFromJSON(targetCanvasData.json, function() {
-              canvas.backgroundColor = null; // 배경 복원 시 투명 유지
+              canvas.backgroundColor = null;
               canvas.renderAll();
               updateLayerPanel();
             });
@@ -583,7 +587,7 @@
 
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
-    // 레이어 및 이벤트
+    // 레이어 관리 및 캔버스 제어
     function updateLayerPanel() {
       const objects = canvas.getObjects();
       layerListEl.innerHTML = '';
@@ -720,7 +724,6 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // 투명 배경을 포함한 PNG 다운로드
     downloadBtn.addEventListener('click', function() {
       canvas.discardActiveObject();
       canvas.renderAll();
