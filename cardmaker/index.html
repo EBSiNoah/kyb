@@ -23,9 +23,9 @@
       color: #333;
     }
 
-    /* 화면 상단 경고 메시지 바 (Notification Banner) */
+    /* 화면 상단 경고 메시지 바 */
     #alertBanner {
-      display: none; /* 기본 상태는 숨김 */
+      display: none;
       width: 100%;
       max-width: 600px;
       background-color: #f8d7da;
@@ -95,6 +95,32 @@
     #imageLoader {
       display: none;
     }
+
+    /* 비율 조절 버튼 스타일 */
+    .aspect-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-left: 2px solid #eee;
+      padding-left: 12px;
+    }
+    .aspect-controls label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #555;
+      margin-right: 4px;
+    }
+    .aspect-btn {
+      background-color: #6c757d;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .aspect-btn.active {
+      background-color: #17a2b8;
+    }
+
     .text-controls {
       display: flex;
       align-items: center;
@@ -125,6 +151,9 @@
       padding: 10px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     canvas {
       border: 1px solid #ddd;
@@ -137,7 +166,6 @@
 
   <h1>이미지 편집기</h1>
 
-  <!-- 웹 화면에 표시될 경고 메시지 영역 -->
   <div id="alertBanner"></div>
 
   <div class="controls">
@@ -145,6 +173,14 @@
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
 
     <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
+
+    <!-- 비율 조절 버튼 그룹 -->
+    <div class="aspect-controls">
+      <label>비율:</label>
+      <button class="btn aspect-btn active" data-ratio="1:1">1:1</button>
+      <button class="btn aspect-btn" data-ratio="4:5">4:5</button>
+      <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
+    </div>
 
     <div class="text-controls">
       <label for="textColor">색상:</label>
@@ -172,15 +208,14 @@
     const textSizeInput = document.getElementById('textSize');
     const deleteBtn = document.getElementById('deleteBtn');
     const alertBanner = document.getElementById('alertBanner');
+    const aspectBtns = document.querySelectorAll('.aspect-btn');
 
     let alertTimeout = null;
 
-    // 화면 상단에 경고 메시지를 표시하는 함수
     function showAlert(message) {
       alertBanner.textContent = message;
       alertBanner.style.display = 'block';
 
-      // 이전 타이머가 있다면 취소 후 4초 뒤 자동 숨김 처리
       if (alertTimeout) clearTimeout(alertTimeout);
       alertTimeout = setTimeout(() => {
         alertBanner.style.display = 'none';
@@ -188,7 +223,61 @@
     }
 
     // =========================================================
-    // 이미지 업로드 및 경고 메시지 출력
+    // 비율 변경 기능 (이미지 및 문구 상대 위치/크기 자동 스케일링)
+    // =========================================================
+    const BASE_WIDTH = 600; // 기준 가로 크기
+
+    aspectBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const ratio = this.getAttribute('data-ratio');
+        
+        let newWidth = BASE_WIDTH;
+        let newHeight = BASE_WIDTH;
+
+        // 비율별 크기 계산 (가로는 600px 고정, 세로 비율 조절)
+        if (ratio === '1:1') {
+          newWidth = 600;
+          newHeight = 600;
+        } else if (ratio === '4:5') {
+          newWidth = 600;
+          newHeight = 750; // (600 / 4) * 5
+        } else if (ratio === '9:16') {
+          newWidth = 600;
+          newHeight = 1066; // (600 / 9) * 16 (반올림)
+        }
+
+        // 현재 크기와 새 크기 간의 스케일 비율 계산
+        const scaleX = newWidth / canvas.width;
+        const scaleY = newHeight / canvas.height;
+
+        // 캔버스 크기 변경
+        canvas.setWidth(newWidth);
+        canvas.setHeight(newHeight);
+
+        // 캔버스 내부의 모든 요소(이미지, 텍스트)의 위치와 크기를 비율에 맞춰 조정
+        const objects = canvas.getObjects();
+        for (let i = 0; i < objects.length; i++) {
+          const obj = objects[i];
+          
+          obj.set({
+            left: obj.left * scaleX,
+            top: obj.top * scaleY,
+            scaleX: obj.scaleX * scaleX,
+            scaleY: obj.scaleY * scaleY
+          });
+          obj.setCoords();
+        }
+
+        canvas.renderAll();
+
+        // 버튼 활성화 스타일 전환
+        aspectBtns.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+
+    // =========================================================
+    // 이미지 업로드 및 보안 검증
     // =========================================================
     imageLoader.addEventListener('change', handleImageUpload);
 
@@ -196,14 +285,12 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // 1) Null Byte 차단 및 화면 경고
       if (file.name.includes('\0') || file.name.includes('%00')) {
         showAlert('⚠️ 올바르지 않은 파일명 형식입니다. (Null Byte 감지)');
         imageLoader.value = '';
         return;
       }
 
-      // 2) 확장자 추출 및 화면 경고
       const sanitizedFileName = file.name.replace(/\0/g, '').replace(/%00/g, '');
       const allowedExtensions = ['png', 'jpg', 'jpeg'];
       const fileExtension = sanitizedFileName.split('.').pop().toLowerCase();
@@ -214,7 +301,6 @@
         return;
       }
 
-      // 3) MIME Type 검증 및 화면 경고
       const validMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
       if (!validMimeTypes.includes(file.type)) {
         showAlert('⚠️ 지원하지 않는 파일 형식(MIME Type)입니다.');
@@ -222,7 +308,6 @@
         return;
       }
 
-      // 파일 로드 및 캔버스 추가
       const reader = new FileReader();
       reader.onload = function(event) {
         const imgObj = new Image();
@@ -256,8 +341,8 @@
     // =========================================================
     addTextBtn.addEventListener('click', function() {
       const textbox = new fabric.Textbox('문구를 입력하세요', {
-        left: 200,
-        top: 250,
+        left: canvas.width / 2 - 100,
+        top: canvas.height / 2 - 20,
         width: 200,
         fontSize: parseInt(textSizeInput.value, 10) || 30,
         fill: textColorInput.value,
