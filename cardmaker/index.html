@@ -112,7 +112,6 @@
       text-align: center;
     }
 
-    /* 🎚️ 줌 슬라이더 바 스타일 */
     .zoom-slider {
       width: 90px;
       cursor: pointer;
@@ -194,6 +193,7 @@
       width: 100%;
     }
 
+    /* 큰 고정 캔버스 프레임 (680px) */
     .canvas-container-wrapper {
       background-color: #2b2d38;
       width: 680px;
@@ -208,6 +208,7 @@
       position: relative;
     }
 
+    /* 레이어 패널 (220px 너비) */
     .layer-panel {
       width: 220px;
       height: 680px;
@@ -298,7 +299,6 @@
       <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
     </div>
 
-    <!-- 🎚️ 슬라이더 형태의 보기 확대/축소 바 -->
     <div class="zoom-controls">
       <label>줌:</label>
       <button id="zoomOutBtn" class="btn zoom-btn">-</button>
@@ -399,6 +399,7 @@
       patternCanvas.height = 40;
       const ctx = patternCanvas.getContext('2d');
       
+      // 픽셀 오차 줄이기 위해 정수형 Rect 사용
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 40, 40);
       ctx.fillStyle = '#e2e5e9';
@@ -411,13 +412,15 @@
     const canvas = new fabric.Canvas('canvas', {
       width: CANVAS_VIEW_SIZE,
       height: CANVAS_VIEW_SIZE,
-      selection: true
+      selection: true,
+      backgroundColor: null // 캔버스 자체 배경 투명
     });
 
     const gridPattern = createGridPattern();
     let workAreaRect = null;
     let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
 
+    // 작업 영역 가이드 박스 생성 및 식별 속성 추가
     function updateWorkArea(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
@@ -434,6 +437,7 @@
         canvas.remove(workAreaRect);
       }
 
+      // 👈 [수정] 식별 태그(isWorkArea) 및 JSON 제외 속성(excludeFromExport) 추가
       workAreaRect = new fabric.Rect({
         left: left,
         top: top,
@@ -444,7 +448,9 @@
         strokeWidth: 2,
         selectable: false,
         evented: false,
-        strokeDashArray: [6, 4]
+        strokeDashArray: [6, 4],
+        isWorkArea: true,           // 👈 식별용 커스텀 속성
+        excludeFromExport: true     // 👈 [Fabric 핵심] JSON 내보내기 시 자동 제외!
       });
 
       canvas.add(workAreaRect);
@@ -454,7 +460,7 @@
 
     updateWorkArea('1:1');
 
-    // --- 🎚️ 슬라이더 연동 줌 기능 구현 ---
+    // --- 줌(Zoom) 기능 구현 ---
     const zoomRange = document.getElementById('zoomRange');
     const zoomValEl = document.getElementById('zoomVal');
     const zoomInBtn = document.getElementById('zoomInBtn');
@@ -462,7 +468,6 @@
     const zoomResetBtn = document.getElementById('zoomResetBtn');
 
     function setCanvasZoom(zoom, updateRangeInput = true) {
-      // 0.5배(50%) ~ 3.0배(300%) 범위 적용
       currentZoom = Math.max(0.5, Math.min(3, zoom));
       
       const center = { x: CANVAS_VIEW_SIZE / 2, y: CANVAS_VIEW_SIZE / 2 };
@@ -476,7 +481,6 @@
       }
     }
 
-    // 마우스로 슬라이더 바 드래그 시 실시간 반영
     zoomRange.addEventListener('input', function() {
       const zoomValue = parseFloat(this.value) / 100;
       setCanvasZoom(zoomValue, false);
@@ -486,7 +490,6 @@
     zoomOutBtn.addEventListener('click', () => setCanvasZoom(currentZoom - 0.1));
     zoomResetBtn.addEventListener('click', () => setCanvasZoom(1));
 
-    // Ctrl + 마우스 휠 지원 및 슬라이더 연동
     canvas.on('mouse:wheel', function(opt) {
       if (opt.e.ctrlKey) {
         let delta = opt.e.deltaY;
@@ -539,9 +542,12 @@
       });
     });
 
-    // JSON Export / Import
+    // =========================================================
+    // [현상 해결] 가이드 박스 제외하고 JSON Export
+    // =========================================================
     exportJsonBtn.addEventListener('click', function() {
-      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
+      // 👈 필터링 로직 보완
+      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       const savedTemplates = {};
       
       [1, 2, 3].forEach(slot => {
@@ -554,9 +560,17 @@
         return;
       }
 
+      // 👈 [Fabric 핵심] customProperties에 excludeFromExport 및 isWorkArea 속성을 추가 요청해야 JSON 변환 시 속성값이 유지/활용됨
+      const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
+      
+      // JSON 객체 배열 내에서 혹시 남아있을 가이드 박스 이중 필터링
+      if (canvasJson.objects) {
+        canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
+      }
+
       const exportData = {
-        version: "3.0",
-        currentCanvas: objects.length > 0 ? { ratio: currentRatio, json: canvas.toJSON() } : null,
+        version: "4.0",
+        currentCanvas: objects.length > 0 ? { ratio: currentRatio, json: canvasJson } : null,
         templates: savedTemplates
       };
 
@@ -575,6 +589,9 @@
       showAlert('💾 프로젝트 데이터가 JSON 파일로 추출되었습니다.');
     });
 
+    // =========================================================
+    // [현상 해결] 오염된 구 가이드 박스 제거하며 Import
+    // =========================================================
     jsonLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -604,9 +621,16 @@
               b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
             });
 
+            // 👈 loadFromJSON 콜백 내부 수정
             canvas.loadFromJSON(targetCanvasData.json, function() {
+              // 👈 [해결] 혹시 JSON 내부에 오염되어 들어온 구 가이드 박스 식별하여 제거
+              const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
+              oldWorkAreas.forEach(obj => canvas.remove(obj));
+
+              // 현재 상태에 맞는 새 가이드 박스 생성
               updateWorkArea(currentRatio);
               updateLayerPanel();
+              setCanvasZoom(1); // 줌 리셋
             });
           }
 
@@ -619,14 +643,26 @@
       jsonLoader.value = '';
     });
 
-    // Quick Storage
+    // =========================================================
+    // [현상 해결] 템플릿 저장 (excludeFromExport 활용)
+    // =========================================================
     function saveTemplate(slotNumber) {
-      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
+      // 👈 필터링 보완
+      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       if (objects.length === 0) {
         showAlert('⚠️ 요소가 없는 빈 작업 공간은 저장할 수 없습니다.');
         return;
       }
-      const templateData = { ratio: currentRatio, json: canvas.toJSON() };
+
+      // 👈 [Fabric 핵심] customProperties 전달
+      const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
+      
+      // JSON 객체 이중 필터링 (JSON 배열 내 객체 삭제)
+      if (canvasJson.objects) {
+        canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
+      }
+
+      const templateData = { ratio: currentRatio, json: canvasJson };
       localStorage.setItem(`editor_template_${slotNumber}`, JSON.stringify(templateData));
       updateTemplateUI(slotNumber);
       showAlert(`✅ Quick 슬롯 ${slotNumber}번에 저장되었습니다.`);
@@ -643,8 +679,13 @@
       });
 
       canvas.loadFromJSON(templateData.json, function() {
+        // 👈 [해결] 템플릿 복원 시 오염된 구 가이드 박스 제거
+        const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
+        oldWorkAreas.forEach(obj => canvas.remove(obj));
+
         updateWorkArea(currentRatio);
         updateLayerPanel();
+        setCanvasZoom(1); // 줌 리셋
         showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
       });
     }
@@ -679,9 +720,10 @@
 
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
-    // 레이어 관리
+    // 레이어 관리 및 디자인 요소 제어
     function updateLayerPanel() {
-      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
+      // 가이드 박스는 레이어 목록에서 제외
+      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       layerListEl.innerHTML = '';
       layerCountEl.textContent = `${objects.length}개`;
 
@@ -735,7 +777,7 @@
     canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteBtn(); });
     canvas.on('text:changed', updateLayerPanel);
 
-    // 이미지 및 텍스트 추가
+    // 요소 추가 및 제어
     imageLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -807,7 +849,7 @@
     }
 
     deleteBtn.addEventListener('click', function() {
-      const activeObjects = canvas.getActiveObjects().filter(o => o !== workAreaRect);
+      const activeObjects = canvas.getActiveObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       if (activeObjects && activeObjects.length > 0) {
         canvas.discardActiveObject();
         activeObjects.forEach(obj => canvas.remove(obj));
@@ -816,17 +858,19 @@
     });
 
     function updateDeleteBtn() {
-      const activeObjects = canvas.getActiveObjects().filter(o => o !== workAreaRect);
+      const activeObjects = canvas.getActiveObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // 다운로드 시 줌 상태에 영향 없이 정밀 크롭
+    // 다운로드
     downloadBtn.addEventListener('click', function() {
       const prevZoom = canvas.getZoom();
-      setCanvasZoom(1);
+      setCanvasZoom(1); // 줌 리셋
 
       canvas.discardActiveObject();
-      workAreaRect.set({ strokeWidth: 0, fill: 'transparent' });
+      
+      // 내보내기 전 작업 가이드 일시 숨김 (stroke만 숨김, exclude 속성에 의해 fill 패턴도 다운로드 Canvas엔 안그려짐)
+      workAreaRect.set({ strokeWidth: 0 });
       canvas.renderAll();
 
       const outputMultiplier = 1 / currentWorkBounds.scale;
@@ -840,8 +884,8 @@
         multiplier: outputMultiplier
       });
 
-      workAreaRect.set({ strokeWidth: 2, fill: gridPattern });
-      setCanvasZoom(prevZoom);
+      workAreaRect.set({ strokeWidth: 2 });
+      setCanvasZoom(prevZoom); // 줌 상태 복원
       canvas.renderAll();
 
       const link = document.createElement('a');
