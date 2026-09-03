@@ -31,8 +31,8 @@
       display: flex;
       gap: 12px;
       align-items: center;
+      flex-wrap: wrap;
     }
-    /* 버튼 스타일 정의 */
     .btn {
       padding: 10px 16px;
       border-radius: 6px;
@@ -50,7 +50,13 @@
     .file-label:hover {
       background-color: #0056b3;
     }
-    /* 화면에 노출될 삭제 버튼 스타일 */
+    .text-btn {
+      background-color: #28a745;
+      color: white;
+    }
+    .text-btn:hover {
+      background-color: #218838;
+    }
     .delete-btn {
       background-color: #dc3545;
       color: white;
@@ -65,6 +71,32 @@
     }
     #imageLoader {
       display: none;
+    }
+    /* 텍스트 스타일 조작 패널 */
+    .text-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 2px solid #eee;
+      padding-left: 12px;
+    }
+    .text-controls label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #555;
+    }
+    .text-controls input[type="color"] {
+      border: none;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      background: none;
+    }
+    .text-controls input[type="number"] {
+      width: 60px;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
     }
     .canvas-container-wrapper {
       background: white;
@@ -84,12 +116,24 @@
   <h1>이미지 편집기</h1>
 
   <div class="controls">
-    <!-- 이미지 불러오기 버튼 -->
+    <!-- 이미지 불러오기 -->
     <label for="imageLoader" class="btn file-label">PC에서 이미지 불러오기</label>
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
 
-    <!-- 웹 화면 삭제 버튼 -->
-    <button id="deleteBtn" class="btn delete-btn" disabled>선택 이미지 삭제</button>
+    <!-- 글자 상자 추가 버튼 -->
+    <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
+
+    <!-- 텍스트 스타일 조작 (색상/크기) -->
+    <div class="text-controls">
+      <label for="textColor">색상:</label>
+      <input type="color" id="textColor" value="#000000">
+
+      <label for="textSize">크기:</label>
+      <input type="number" id="textSize" value="30" min="10" max="200">
+    </div>
+
+    <!-- 선택 요소 삭제 버튼 -->
+    <button id="deleteBtn" class="btn delete-btn" disabled>선택 요소 삭제</button>
   </div>
 
   <div class="canvas-container-wrapper">
@@ -103,9 +147,14 @@
     });
 
     const imageLoader = document.getElementById('imageLoader');
+    const addTextBtn = document.getElementById('addTextBtn');
+    const textColorInput = document.getElementById('textColor');
+    const textSizeInput = document.getElementById('textSize');
     const deleteBtn = document.getElementById('deleteBtn');
 
+    // =========================================================
     // 2. 이미지 업로드 및 보안 검증
+    // =========================================================
     imageLoader.addEventListener('change', handleImageUpload);
 
     function handleImageUpload(e) {
@@ -164,30 +213,78 @@
     }
 
     // =========================================================
-    // 삭제 버튼 동작 처리
+    // 3. 글자 상자(텍스트) 추가 기능
+    // =========================================================
+    addTextBtn.addEventListener('click', function() {
+      // 입력 가능한 Textbox 객체 생성
+      const textbox = new fabric.Textbox('문구를 입력하세요', {
+        left: 200,
+        top: 250,
+        width: 200,
+        fontSize: parseInt(textSizeInput.value, 10) || 30,
+        fill: textColorInput.value,
+        splitByGrapheme: true // 한글 입력을 자연스럽게 줄바꿈 처리
+      });
+
+      canvas.add(textbox);
+      canvas.setActiveObject(textbox);
+      canvas.renderAll();
+    });
+
+    // =========================================================
+    // 4. 텍스트 옵션 변경 (색상 / 크기)
     // =========================================================
 
-    // 삭제 버튼 클릭 이벤트 처리
+    // 색상 변경 시
+    textColorInput.addEventListener('input', function() {
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && activeObject.type === 'textbox') {
+        activeObject.set('fill', this.value);
+        canvas.renderAll();
+      }
+    });
+
+    // 글자 크기 변경 시
+    textSizeInput.addEventListener('input', function() {
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && activeObject.type === 'textbox') {
+        activeObject.set('fontSize', parseInt(this.value, 10) || 20);
+        canvas.renderAll();
+      }
+    });
+
+    // 선택된 텍스트 요소가 바뀔 때 상단 컨트롤 값도 맞춰서 업데이트
+    canvas.on('selection:created', syncTextControls);
+    canvas.on('selection:updated', syncTextControls);
+
+    function syncTextControls() {
+      const activeObject = canvas.getActiveObject();
+      if (activeObject && activeObject.type === 'textbox') {
+        textColorInput.value = activeObject.fill;
+        textSizeInput.value = activeObject.fontSize;
+      }
+    }
+
+    // =========================================================
+    // 5. 선택 요소 삭제 기능 및 버튼 상태 동기화
+    // =========================================================
     deleteBtn.addEventListener('click', function() {
       const activeObjects = canvas.getActiveObjects();
 
       if (activeObjects && activeObjects.length > 0) {
-        canvas.discardActiveObject(); // 선택 상자 해제
+        canvas.discardActiveObject();
         activeObjects.forEach(obj => {
-          canvas.remove(obj); // 캔버스에서 해당 객체 제거
+          canvas.remove(obj);
         });
-        canvas.requestRenderAll(); // 캔버스 재렌더링
+        canvas.requestRenderAll();
       }
     });
 
-    // 캔버스 상태에 따라 웹 화면 삭제 버튼 활성화/비활성화 처리
     function updateDeleteButtonState() {
       const activeObjects = canvas.getActiveObjects();
-      // 선택된 항목이 있을 때만 버튼 활성화
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // 선택 이벤트 리스너 등록
     canvas.on('selection:created', updateDeleteButtonState);
     canvas.on('selection:updated', updateDeleteButtonState);
     canvas.on('selection:cleared', updateDeleteButtonState);
