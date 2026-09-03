@@ -26,7 +26,7 @@
     #alertBanner {
       display: none;
       width: 100%;
-      max-width: 800px;
+      max-width: 1100px;
       background-color: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
@@ -54,7 +54,7 @@
       gap: 12px;
       align-items: center;
       flex-wrap: wrap;
-      max-width: 900px;
+      max-width: 1100px;
       width: 100%;
     }
     .btn {
@@ -116,6 +116,15 @@
       width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
     }
 
+    /* 메인 워크스페이스 레이아웃 (캔버스 + 레이어 패널) */
+    .workspace-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      max-width: 1100px;
+      width: 100%;
+    }
+
     .canvas-container-wrapper {
       background: #e9ecef;
       padding: 20px;
@@ -124,12 +133,102 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      min-width: 500px;
-      min-height: 500px;
+      flex: 1;
+      min-height: 540px;
     }
     canvas {
       border: 1px solid #ccc;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* 레이어 패널 스타일 */
+    .layer-panel {
+      width: 280px;
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      max-height: 540px;
+    }
+    .layer-panel h3 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #f4f6f8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .layer-panel .layer-count {
+      font-size: 12px;
+      background-color: #e9ecef;
+      padding: 2px 8px;
+      border-radius: 12px;
+      color: #6c757d;
+    }
+    .layer-list {
+      list-style: none;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .layer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    .layer-item:hover {
+      background: #eef2f7;
+    }
+    .layer-item.active {
+      border-color: #007bff;
+      background: #e7f1ff;
+      font-weight: bold;
+      color: #0056b3;
+    }
+    .layer-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: 190px;
+    }
+    .layer-icon {
+      font-size: 14px;
+    }
+    .layer-delete-btn {
+      background: none;
+      border: none;
+      color: #dc3545;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .layer-delete-btn:hover {
+      opacity: 1;
+      background-color: rgba(220, 53, 69, 0.1);
+    }
+    .empty-layers {
+      text-align: center;
+      color: #adb5bd;
+      font-size: 13px;
+      padding: 30px 0;
     }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -165,12 +264,24 @@
     <button id="downloadBtn" class="btn download-btn">이미지 내려받기</button>
   </div>
 
-  <div class="canvas-container-wrapper">
-    <canvas id="canvas"></canvas>
+  <div class="workspace-container">
+    <div class="canvas-container-wrapper">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- 레이어 목록 패널 -->
+    <div class="layer-panel">
+      <h3>
+        레이어 목록
+        <span class="layer-count" id="layerCount">0개</span>
+      </h3>
+      <ul class="layer-list" id="layerList">
+        <li class="empty-layers">추가된 요소가 없습니다</li>
+      </ul>
+    </div>
   </div>
 
   <script>
-    // 해상도 기준 설정 (내려받을 고해상도 원본 크기 고정)
     const RESOLUTION_MAP = {
       '1:1': { width: 1080, height: 1080 },
       '4:5': { width: 1080, height: 1350 },
@@ -178,7 +289,7 @@
     };
 
     let currentRatio = '1:1';
-    const PREVIEW_MAX_SIZE = 500; // 미리보기 화면 상 최대 노출 크기(px)
+    const PREVIEW_MAX_SIZE = 500;
 
     const canvas = new fabric.Canvas('canvas', {
       backgroundColor: '#ffffff'
@@ -192,6 +303,9 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const alertBanner = document.getElementById('alertBanner');
     const aspectBtns = document.querySelectorAll('.aspect-btn');
+    
+    const layerListEl = document.getElementById('layerList');
+    const layerCountEl = document.getElementById('layerCount');
 
     let alertTimeout = null;
 
@@ -202,21 +316,15 @@
       alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
     }
 
-    // =========================================================
-    // 해상도 및 화면 스케일 일치화 핵심 로직
-    // =========================================================
     function updateCanvasResolution(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
 
-      // 1. 내부 논리 캔버스 해상도 고정
       canvas.setWidth(targetRes.width);
       canvas.setHeight(targetRes.height);
 
-      // 2. 화면 미리보기용 스케일 계산 (가장 긴 축을 PREVIEW_MAX_SIZE에 맞춤)
       const scale = Math.min(PREVIEW_MAX_SIZE / targetRes.width, PREVIEW_MAX_SIZE / targetRes.height);
 
-      // 3. CSS 크기만 조정하여 줄바꿈/위치 변형 문제 원천 차단
       canvas.setDimensions({
         width: targetRes.width * scale,
         height: targetRes.height * scale
@@ -225,10 +333,8 @@
       canvas.renderAll();
     }
 
-    // 초기 해상도 적용 (1:1)
     updateCanvasResolution('1:1');
 
-    // 비율 변경 이벤트
     aspectBtns.forEach(btn => {
       btn.addEventListener('click', function() {
         const ratio = this.getAttribute('data-ratio');
@@ -238,6 +344,78 @@
         this.classList.add('active');
       });
     });
+
+    // =========================================================
+    // 레이어 UI 동기화 기능
+    // =========================================================
+    function updateLayerPanel() {
+      const objects = canvas.getObjects();
+      layerListEl.innerHTML = '';
+      layerCountEl.textContent = `${objects.length}개`;
+
+      if (objects.length === 0) {
+        layerListEl.innerHTML = '<li class="empty-layers">추가된 요소가 없습니다</li>';
+        return;
+      }
+
+      const activeObjects = canvas.getActiveObjects();
+
+      // 최신 생성 요소를 위에 노출하기 위해 역순 반복
+      for (let i = objects.length - 1; i >= 0; i--) {
+        const obj = objects[i];
+        const li = document.createElement('li');
+        li.className = 'layer-item';
+
+        if (activeObjects.includes(obj)) {
+          li.classList.add('active');
+        }
+
+        let icon = '🖼️';
+        let title = '이미지';
+
+        if (obj.type === 'textbox') {
+          icon = '✏️';
+          title = obj.text ? `"${obj.text}"` : '텍스트 상자';
+        }
+
+        li.innerHTML = `
+          <div class="layer-info">
+            <span class="layer-icon">${icon}</span>
+            <span class="layer-title">${title}</span>
+          </div>
+          <button class="layer-delete-btn" title="삭제">✕</button>
+        `;
+
+        // 레이어 항목 클릭 시 해당 요소 선택
+        li.addEventListener('click', (e) => {
+          if (e.target.classList.contains('layer-delete-btn')) return;
+          canvas.setActiveObject(obj);
+          canvas.renderAll();
+        });
+
+        // 개별 레이어 삭제
+        const deleteBtnEl = li.querySelector('.layer-delete-btn');
+        deleteBtnEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          canvas.remove(obj);
+          canvas.discardActiveObject();
+          canvas.requestRenderAll();
+        });
+
+        layerListEl.appendChild(li);
+      }
+    }
+
+    // 캔버스 변경 이벤트 발생 시 레이어 패널 업데이트
+    canvas.on('object:added', updateLayerPanel);
+    canvas.on('object:removed', updateLayerPanel);
+    canvas.on('object:modified', updateLayerPanel);
+    canvas.on('selection:created', () => { syncTextControls(); updateLayerPanel(); updateDeleteButtonState(); });
+    canvas.on('selection:updated', () => { syncTextControls(); updateLayerPanel(); updateDeleteButtonState(); });
+    canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteButtonState(); });
+
+    // 텍스트 내용 실시간 변경 반영
+    canvas.on('text:changed', updateLayerPanel);
 
     // =========================================================
     // 이미지 업로드
@@ -267,7 +445,6 @@
         imgObj.onload = function() {
           const fabricImg = new fabric.Image(imgObj);
           
-          // 캔버스 크기에 맞게 이미지 비율 자동 조정
           const maxWidth = canvas.width * 0.8;
           const maxHeight = canvas.height * 0.8;
 
@@ -287,7 +464,7 @@
     });
 
     // =========================================================
-    // 텍스트 추가 및 컨트롤
+    // 텍스트 추가 및 조작
     // =========================================================
     addTextBtn.addEventListener('click', function() {
       const textbox = new fabric.Textbox('문구를 입력하세요', {
@@ -320,9 +497,6 @@
       }
     });
 
-    canvas.on('selection:created', syncTextControls);
-    canvas.on('selection:updated', syncTextControls);
-
     function syncTextControls() {
       const activeObject = canvas.getActiveObject();
       if (activeObject && activeObject.type === 'textbox') {
@@ -331,7 +505,6 @@
       }
     }
 
-    // 삭제 기능
     deleteBtn.addEventListener('click', function() {
       const activeObjects = canvas.getActiveObjects();
       if (activeObjects && activeObjects.length > 0) {
@@ -341,28 +514,22 @@
       }
     });
 
-    canvas.on('selection:created', updateDeleteButtonState);
-    canvas.on('selection:updated', updateDeleteButtonState);
-    canvas.on('selection:cleared', updateDeleteButtonState);
-
     function updateDeleteButtonState() {
       const activeObjects = canvas.getActiveObjects();
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
     // =========================================================
-    // 이미지 내려받기 기능 (미리보기와 100% 동일한 해상도로 출력)
+    // 이미지 다운로드
     // =========================================================
     downloadBtn.addEventListener('click', function() {
-      // 선택 영역 테두리 해제
       canvas.discardActiveObject();
       canvas.renderAll();
 
-      // 고해상도 이미지 데이터 추출
       const dataURL = canvas.toDataURL({
         format: 'png',
         quality: 1.0,
-        multiplier: 1 // 실제 설정된 해상도 1080p 기준으로 정확히 추출
+        multiplier: 1
       });
 
       const link = document.createElement('a');
