@@ -49,7 +49,7 @@
       padding: 15px 20px;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
+      margin-bottom: 15px;
       display: flex;
       gap: 12px;
       align-items: center;
@@ -116,7 +116,81 @@
       width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
     }
 
-    /* 메인 워크스페이스 레이아웃 (캔버스 + 레이어 패널) */
+    /* ----------------------------------- */
+    /* 템플릿 관리 영역 스타일             */
+    /* ----------------------------------- */
+    .template-container {
+      background: #ffffff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      max-width: 1100px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .template-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+      white-space: nowrap;
+    }
+    .template-slots {
+      display: flex;
+      gap: 12px;
+      flex: 1;
+    }
+    .template-slot {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8f9fa;
+      border: 1px dashed #adb5bd;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .template-slot.saved {
+      border-style: solid;
+      border-color: #28a745;
+      background: #f0fff4;
+    }
+    .slot-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .slot-name {
+      font-weight: bold;
+      color: #495057;
+    }
+    .slot-status {
+      font-size: 11px;
+      color: #868e96;
+    }
+    .slot-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .slot-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-save { background: #007bff; color: white; }
+    .btn-save:hover { background: #0056b3; }
+    .btn-load { background: #28a745; color: white; }
+    .btn-load:hover { background: #218838; }
+    .btn-load:disabled { background: #ced4da; cursor: not-allowed; }
+    .btn-clear { background: #dc3545; color: white; }
+    .btn-clear:hover { background: #bd2130; }
+
+    /* 워크스페이스 레이아웃 */
     .workspace-container {
       display: flex;
       gap: 20px;
@@ -141,7 +215,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
-    /* 레이어 패널 스타일 */
+    /* 레이어 패널 */
     .layer-panel {
       width: 280px;
       background: white;
@@ -188,9 +262,7 @@
       font-size: 13px;
       transition: all 0.2s ease;
     }
-    .layer-item:hover {
-      background: #eef2f7;
-    }
+    .layer-item:hover { background: #eef2f7; }
     .layer-item.active {
       border-color: #007bff;
       background: #e7f1ff;
@@ -206,30 +278,13 @@
       text-overflow: ellipsis;
       max-width: 190px;
     }
-    .layer-icon {
-      font-size: 14px;
-    }
+    .layer-icon { font-size: 14px; }
     .layer-delete-btn {
-      background: none;
-      border: none;
-      color: #dc3545;
-      font-size: 14px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-      opacity: 0.6;
-      transition: opacity 0.2s;
+      background: none; border: none; color: #dc3545; font-size: 14px;
+      cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0.6;
     }
-    .layer-delete-btn:hover {
-      opacity: 1;
-      background-color: rgba(220, 53, 69, 0.1);
-    }
-    .empty-layers {
-      text-align: center;
-      color: #adb5bd;
-      font-size: 13px;
-      padding: 30px 0;
-    }
+    .layer-delete-btn:hover { opacity: 1; background-color: rgba(220, 53, 69, 0.1); }
+    .empty-layers { text-align: center; color: #adb5bd; font-size: 13px; padding: 30px 0; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
@@ -239,6 +294,7 @@
 
   <div id="alertBanner"></div>
 
+  <!-- 컨트롤 바 -->
   <div class="controls">
     <label for="imageLoader" class="btn file-label">이미지 불러오기</label>
     <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
@@ -264,12 +320,58 @@
     <button id="downloadBtn" class="btn download-btn">이미지 내려받기</button>
   </div>
 
+  <!-- 템플릿 관리 영역 (3개 슬롯) -->
+  <div class="template-container">
+    <div class="template-title">📁 템플릿 저장소 (최대 3개):</div>
+    <div class="template-slots">
+      
+      <!-- Slot 1 -->
+      <div class="template-slot" id="slot-1">
+        <div class="slot-info">
+          <span class="slot-name">템플릿 1</span>
+          <span class="slot-status" id="status-1">비어 있음</span>
+        </div>
+        <div class="slot-actions">
+          <button class="slot-btn btn-save" onclick="saveTemplate(1)">저장</button>
+          <button class="slot-btn btn-load" id="load-btn-1" onclick="loadTemplate(1)" disabled>불러오기</button>
+          <button class="slot-btn btn-clear" id="clear-btn-1" onclick="clearTemplate(1)" style="display:none;">✕</button>
+        </div>
+      </div>
+
+      <!-- Slot 2 -->
+      <div class="template-slot" id="slot-2">
+        <div class="slot-info">
+          <span class="slot-name">템플릿 2</span>
+          <span class="slot-status" id="status-2">비어 있음</span>
+        </div>
+        <div class="slot-actions">
+          <button class="slot-btn btn-save" onclick="saveTemplate(2)">저장</button>
+          <button class="slot-btn btn-load" id="load-btn-2" onclick="loadTemplate(2)" disabled>불러오기</button>
+          <button class="slot-btn btn-clear" id="clear-btn-2" onclick="clearTemplate(2)" style="display:none;">✕</button>
+        </div>
+      </div>
+
+      <!-- Slot 3 -->
+      <div class="template-slot" id="slot-3">
+        <div class="slot-info">
+          <span class="slot-name">템플릿 3</span>
+          <span class="slot-status" id="status-3">비어 있음</span>
+        </div>
+        <div class="slot-actions">
+          <button class="slot-btn btn-save" onclick="saveTemplate(3)">저장</button>
+          <button class="slot-btn btn-load" id="load-btn-3" onclick="loadTemplate(3)" disabled>불러오기</button>
+          <button class="slot-btn btn-clear" id="clear-btn-3" onclick="clearTemplate(3)" style="display:none;">✕</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <div class="workspace-container">
     <div class="canvas-container-wrapper">
       <canvas id="canvas"></canvas>
     </div>
 
-    <!-- 레이어 목록 패널 -->
     <div class="layer-panel">
       <h3>
         레이어 목록
@@ -346,6 +448,82 @@
     });
 
     // =========================================================
+    // 템플릿 3개 저장/불러오기 핵심 기능
+    // =========================================================
+    function saveTemplate(slotNumber) {
+      if (canvas.getObjects().length === 0) {
+        showAlert('⚠️ 빈 캔버스는 템플릿으로 저장할 수 없습니다.');
+        return;
+      }
+
+      // 현재 캔버스 데이터 JSON 변환 및 저장
+      const templateData = {
+        ratio: currentRatio,
+        json: canvas.toJSON()
+      };
+
+      localStorage.setItem(`editor_template_${slotNumber}`, JSON.stringify(templateData));
+      updateTemplateUI(slotNumber);
+      showAlert(`✅ 템플릿 ${slotNumber}번 슬롯에 저장되었습니다.`);
+    }
+
+    function loadTemplate(slotNumber) {
+      const dataStr = localStorage.getItem(`editor_template_${slotNumber}`);
+      if (!dataStr) return;
+
+      const templateData = JSON.parse(dataStr);
+
+      // 비율 설정 복원
+      currentRatio = templateData.ratio || '1:1';
+      aspectBtns.forEach(b => {
+        if (b.getAttribute('data-ratio') === currentRatio) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+      updateCanvasResolution(currentRatio);
+
+      // Fabric 캔버스 객체 복원
+      canvas.loadFromJSON(templateData.json, function() {
+        canvas.renderAll();
+        updateLayerPanel();
+        showAlert(`🔄 템플릿 ${slotNumber}번을 불러왔습니다.`);
+      });
+    }
+
+    function clearTemplate(slotNumber) {
+      localStorage.removeItem(`editor_template_${slotNumber}`);
+      updateTemplateUI(slotNumber);
+      showAlert(`🗑️ 템플릿 ${slotNumber}번이 초기화되었습니다.`);
+    }
+
+    function updateTemplateUI(slotNumber) {
+      const slotEl = document.getElementById(`slot-${slotNumber}`);
+      const statusEl = document.getElementById(`status-${slotNumber}`);
+      const loadBtn = document.getElementById(`load-btn-${slotNumber}`);
+      const clearBtn = document.getElementById(`clear-btn-${slotNumber}`);
+
+      const savedData = localStorage.getItem(`editor_template_${slotNumber}`);
+
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        slotEl.classList.add('saved');
+        statusEl.textContent = `저장됨 (${parsed.ratio})`;
+        loadBtn.disabled = false;
+        clearBtn.style.display = 'inline-block';
+      } else {
+        slotEl.classList.remove('saved');
+        statusEl.textContent = '비어 있음';
+        loadBtn.disabled = true;
+        clearBtn.style.display = 'none';
+      }
+    }
+
+    // 페이지 접속 시 3개 슬롯 상태 확인
+    [1, 2, 3].forEach(slot => updateTemplateUI(slot));
+
+    // =========================================================
     // 레이어 UI 동기화 기능
     // =========================================================
     function updateLayerPanel() {
@@ -360,7 +538,6 @@
 
       const activeObjects = canvas.getActiveObjects();
 
-      // 최신 생성 요소를 위에 노출하기 위해 역순 반복
       for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
         const li = document.createElement('li');
@@ -386,14 +563,12 @@
           <button class="layer-delete-btn" title="삭제">✕</button>
         `;
 
-        // 레이어 항목 클릭 시 해당 요소 선택
         li.addEventListener('click', (e) => {
           if (e.target.classList.contains('layer-delete-btn')) return;
           canvas.setActiveObject(obj);
           canvas.renderAll();
         });
 
-        // 개별 레이어 삭제
         const deleteBtnEl = li.querySelector('.layer-delete-btn');
         deleteBtnEl.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -406,15 +581,12 @@
       }
     }
 
-    // 캔버스 변경 이벤트 발생 시 레이어 패널 업데이트
     canvas.on('object:added', updateLayerPanel);
     canvas.on('object:removed', updateLayerPanel);
     canvas.on('object:modified', updateLayerPanel);
     canvas.on('selection:created', () => { syncTextControls(); updateLayerPanel(); updateDeleteButtonState(); });
     canvas.on('selection:updated', () => { syncTextControls(); updateLayerPanel(); updateDeleteButtonState(); });
     canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteButtonState(); });
-
-    // 텍스트 내용 실시간 변경 반영
     canvas.on('text:changed', updateLayerPanel);
 
     // =========================================================
