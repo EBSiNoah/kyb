@@ -207,7 +207,6 @@
       position: relative;
     }
 
-    /* 레이어 패널 스타일 확장 */
     .layer-panel {
       width: 250px;
       height: 680px;
@@ -456,6 +455,10 @@
     let workAreaRect = null;
     let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
 
+    // 디자인 레이어의 순서(z-index)를 추적하는 전역 배열
+    let layerOrder = [];
+    let currentSelectedObj = null;
+
     function updateWorkArea(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
@@ -570,9 +573,20 @@
       });
     });
 
+    // 준비: 순서에 맞춰 캔버스 재배치하는 헬퍼 함수
+    function applyLayerOrder() {
+      layerOrder.forEach((obj, idx) => {
+        obj.moveTo(idx + 1); // workAreaRect가 0번이므로 1부터 시작
+      });
+      if (workAreaRect) workAreaRect.sendToBack();
+    }
+
     // JSON Export
     exportJsonBtn.addEventListener('click', function() {
-      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
+      // JSON 내보내기 전 원래 z-index 적용
+      applyLayerOrder();
+
+      const objects = layerOrder;
       const savedTemplates = {};
       
       [1, 2, 3].forEach(slot => {
@@ -609,6 +623,9 @@
       URL.revokeObjectURL(url);
 
       showAlert('💾 프로젝트 데이터가 JSON 파일로 추출되었습니다.');
+      
+      // 선택 중이었다면 다시 최상단으로 가져오기
+      if (currentSelectedObj) currentSelectedObj.bringToFront();
     });
 
     // JSON Import
@@ -646,6 +663,7 @@
               oldWorkAreas.forEach(obj => canvas.remove(obj));
 
               updateWorkArea(currentRatio);
+              rebuildLayerOrder();
               updateLayerPanel();
               setCanvasZoom(1);
             });
@@ -662,7 +680,8 @@
 
     // 템플릿 저장 및 불러오기
     function saveTemplate(slotNumber) {
-      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
+      applyLayerOrder();
+      const objects = layerOrder;
       if (objects.length === 0) {
         showAlert('⚠️ 요소가 없는 빈 작업 공간은 저장할 수 없습니다.');
         return;
@@ -677,6 +696,8 @@
       localStorage.setItem(`editor_template_${slotNumber}`, JSON.stringify(templateData));
       updateTemplateUI(slotNumber);
       showAlert(`✅ Quick 슬롯 ${slotNumber}번에 저장되었습니다.`);
+      
+      if (currentSelectedObj) currentSelectedObj.bringToFront();
     }
 
     function loadTemplate(slotNumber) {
@@ -694,6 +715,7 @@
         oldWorkAreas.forEach(obj => canvas.remove(obj));
 
         updateWorkArea(currentRatio);
+        rebuildLayerOrder();
         updateLayerPanel();
         setCanvasZoom(1);
         showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
@@ -731,53 +753,63 @@
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
     // =========================================================
-    // 🌟 [핵심] 레이어 순서 조절 및 패널 업데이트 구현
+    // 🌟 [핵심] 레이어 순서 조절 및 선택 시 상위 노출 제어
     // =========================================================
     let draggedItemIndex = null;
 
+    // layerOrder 배열 재구성 (객체 추가/삭제/로드 시)
+    function rebuildLayerOrder() {
+      const objs = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
+      // 기존 layerOrder에 속한 순서 유지하되 새로운 객체 포함
+      const newOrder = [];
+      layerOrder.forEach(obj => {
+        if (objs.includes(obj)) newOrder.push(obj);
+      });
+      objs.forEach(obj => {
+        if (!newOrder.includes(obj)) newOrder.push(obj);
+      });
+      layerOrder = newOrder;
+    }
+
     function moveLayer(fromIndex, toIndex) {
-      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
-      if (toIndex < 0 || toIndex >= objects.length) return;
+      if (toIndex < 0 || toIndex >= layerOrder.length) return;
 
-      const targetObj = objects[fromIndex];
-      
-      // Fabric 캔버스 전체 객체 상에서의 인덱스로 환산 (workAreaRect가 맨 밑(0번)에 있음)
-      // objects 배열의 i번째 객체는 workAreaRect 다음부터 시작하므로 Fabric 인덱스는 i + 1
-      const fabricNewIndex = toIndex + 1;
+      // layerOrder 배열 상에서 위치 변경
+      const [movedObj] = layerOrder.splice(fromIndex, 1);
+      layerOrder.splice(toIndex, 0, movedObj);
 
-      targetObj.moveTo(fabricNewIndex);
-      
-      // workAreaRect가 맨 밑에 위치하도록 보장
-      if (workAreaRect) workAreaRect.sendToBack();
+      // 전체 캔버스 객체 z-index 동기화
+      applyLayerOrder();
+
+      // 현재 선택된 객체가 있다면 최상단으로 가시성 유지
+      if (currentSelectedObj) {
+        currentSelectedObj.bringToFront();
+      }
 
       canvas.renderAll();
       updateLayerPanel();
     }
 
     function updateLayerPanel() {
-      // 순수 디자인 객체만 추출
-      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       layerListEl.innerHTML = '';
-      layerCountEl.textContent = `${objects.length}개`;
+      layerCountEl.textContent = `${layerOrder.length}개`;
 
-      if (objects.length === 0) {
+      if (layerOrder.length === 0) {
         layerListEl.innerHTML = '<li class="empty-layers">추가된 요소가 없습니다</li>';
         return;
       }
 
-      const activeObjects = canvas.getActiveObjects();
+      const activeObject = canvas.getActiveObject();
 
-      // UI에는 화면 상단의 레이어(z-index 높은 객체)가 목록 맨 위에 오도록 역순(Top-to-Bottom)으로 출력
-      for (let i = objects.length - 1; i >= 0; i--) {
-        const obj = objects[i];
-        const displayIndex = objects.length - 1 - i; // UI 리스트에서의 상단 기준 인덱스
+      // UI에는 화면 상단의 레이어(z-index 높은 객체)가 목록 맨 위에 오도록 역순(Top-to-Bottom) 출력
+      for (let i = layerOrder.length - 1; i >= 0; i--) {
+        const obj = layerOrder[i];
 
         const li = document.createElement('li');
         li.className = 'layer-item';
         li.draggable = true;
-        li.dataset.index = i; // 실제 objects 배열의 인덱스 기록
 
-        if (activeObjects.includes(obj)) li.classList.add('active');
+        if (activeObject === obj) li.classList.add('active');
 
         let icon = obj.type === 'textbox' ? '✏️' : '🖼️';
         let title = obj.type === 'textbox' ? (obj.text ? `"${obj.text}"` : '텍스트') : '이미지';
@@ -788,13 +820,13 @@
             <span>${title}</span>
           </div>
           <div class="layer-actions">
-            <button class="layer-btn move-up" title="위로 이동" ${i === objects.length - 1 ? 'disabled' : ''}>▲</button>
+            <button class="layer-btn move-up" title="위로 이동" ${i === layerOrder.length - 1 ? 'disabled' : ''}>▲</button>
             <button class="layer-btn move-down" title="아래로 이동" ${i === 0 ? 'disabled' : ''}>▼</button>
             <button class="layer-btn delete-btn" title="삭제">✕</button>
           </div>
         `;
 
-        // 1. 레이어 클릭 시 객체 선택
+        // 1. 레이어 클릭 시 해당 객체 선택
         li.addEventListener('click', (e) => {
           if (e.target.closest('.layer-actions')) return;
           canvas.setActiveObject(obj);
@@ -808,12 +840,12 @@
 
         upBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          moveLayer(i, i + 1); // objects 배열 상에서 한 단계 위(z-index 증가)
+          moveLayer(i, i + 1);
         });
 
         downBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          moveLayer(i, i - 1); // objects 배열 상에서 한 단계 아래(z-index 감소)
+          moveLayer(i, i - 1);
         });
 
         delBtn.addEventListener('click', (e) => {
@@ -823,7 +855,7 @@
           canvas.requestRenderAll();
         });
 
-        // 3. 드래그 앤 드롭 이벤트 (HTML5 Drag & Drop)
+        // 3. 드래그 앤 드롭 이벤트
         li.addEventListener('dragstart', (e) => {
           draggedItemIndex = i;
           li.classList.add('dragging');
@@ -850,13 +882,62 @@
       }
     }
 
-    // Canvas 이벤트에 레이어 패널 동기화 연결
-    canvas.on('object:added', updateLayerPanel);
-    canvas.on('object:removed', updateLayerPanel);
+    // --- 🌟 핵심: 선택 시 최상단 표시, 해제 시 원래 위치 복원 ---
+    function restorePreviousSelection() {
+      if (currentSelectedObj) {
+        applyLayerOrder();
+        currentSelectedObj = null;
+      }
+    }
+
+    function handleSelection(targetObj) {
+      if (!targetObj || targetObj.isWorkArea || targetObj === workAreaRect) return;
+
+      // 이전 선택 항목이 있다면 순서 원복
+      if (currentSelectedObj && currentSelectedObj !== targetObj) {
+        applyLayerOrder();
+      }
+
+      currentSelectedObj = targetObj;
+      // 선택된 객체를 최상단으로 임시 이동하여 상위에서 보이도록 설정
+      targetObj.bringToFront();
+      canvas.renderAll();
+    }
+
+    // Fabric.js 이벤트 바인딩
+    canvas.on('object:added', () => {
+      rebuildLayerOrder();
+      updateLayerPanel();
+    });
+
+    canvas.on('object:removed', (e) => {
+      if (e.target === currentSelectedObj) currentSelectedObj = null;
+      rebuildLayerOrder();
+      updateLayerPanel();
+    });
+
+    canvas.on('selection:created', (e) => {
+      handleSelection(e.selected[0]);
+      syncTextControls();
+      updateLayerPanel();
+      updateDeleteBtn();
+    });
+
+    canvas.on('selection:updated', (e) => {
+      handleSelection(e.selected[0]);
+      syncTextControls();
+      updateLayerPanel();
+      updateDeleteBtn();
+    });
+
+    canvas.on('selection:cleared', () => {
+      restorePreviousSelection();
+      canvas.renderAll();
+      updateLayerPanel();
+      updateDeleteBtn();
+    });
+
     canvas.on('object:modified', updateLayerPanel);
-    canvas.on('selection:created', () => { syncTextControls(); updateLayerPanel(); updateDeleteBtn(); });
-    canvas.on('selection:updated', () => { syncTextControls(); updateLayerPanel(); updateDeleteBtn(); });
-    canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteBtn(); });
     canvas.on('text:changed', updateLayerPanel);
 
     // 요소 추가 및 제어
@@ -944,13 +1025,14 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // 이미지 내려받기
+    // 이미지 내려받기 (출력 시 원래 z-index 적용 후 렌더링)
     downloadBtn.addEventListener('click', function() {
       const prevZoom = canvas.getZoom();
       setCanvasZoom(1);
 
       canvas.discardActiveObject();
-      
+      restorePreviousSelection();
+
       workAreaRect.set({ strokeWidth: 0 });
       canvas.renderAll();
 
