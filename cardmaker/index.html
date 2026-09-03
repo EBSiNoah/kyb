@@ -83,19 +83,19 @@
 
     #imageLoader, #jsonLoader { display: none; }
 
-    .aspect-controls, .text-controls {
+    .aspect-controls, .text-controls, .zoom-controls {
       display: flex;
       align-items: center;
       gap: 6px;
       border-left: 2px solid #eee;
       padding-left: 10px;
     }
-    .aspect-controls label, .text-controls label {
+    .aspect-controls label, .text-controls label, .zoom-controls label {
       font-size: 12px;
       font-weight: bold;
       color: #555;
     }
-    .aspect-btn {
+    .aspect-btn, .zoom-btn {
       background-color: #6c757d;
       color: white;
       padding: 6px 10px;
@@ -103,6 +103,14 @@
       font-size: 12px;
     }
     .aspect-btn.active { background-color: #007bff; }
+    .zoom-btn:hover { background-color: #495057; }
+    .zoom-text {
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+      min-width: 45px;
+      text-align: center;
+    }
 
     .text-controls input[type="color"] {
       border: none; width: 28px; height: 28px; cursor: pointer; background: none;
@@ -181,7 +189,7 @@
 
     /* 큰 고정 캔버스 프레임 (680px) */
     .canvas-container-wrapper {
-      background-color: #2b2d38; /* 외부 바깥 공간 어두운 보라/그레이 톤 */
+      background-color: #2b2d38;
       width: 680px;
       height: 680px;
       border-radius: 8px;
@@ -285,6 +293,15 @@
       <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
     </div>
 
+    <!-- 🔍 보기 확대/축소 버튼 추가 -->
+    <div class="zoom-controls">
+      <label>보기 확대:</label>
+      <button id="zoomOutBtn" class="btn zoom-btn">🔍 -</button>
+      <span id="zoomVal" class="zoom-text">100%</span>
+      <button id="zoomInBtn" class="btn zoom-btn">🔍 +</button>
+      <button id="zoomResetBtn" class="btn zoom-btn">초기화</button>
+    </div>
+
     <div class="text-controls">
       <label for="textColor">색상:</label>
       <input type="color" id="textColor" value="#000000">
@@ -360,7 +377,6 @@
   </div>
 
   <script>
-    // 내보낼 해상도 스펙
     const RESOLUTION_MAP = {
       '1:1': { width: 1080, height: 1080 },
       '4:5': { width: 1080, height: 1350 },
@@ -368,11 +384,9 @@
     };
 
     let currentRatio = '1:1';
-    
-    // 고정 캔버스 크기 (상자 안에서 전체 판)
     const CANVAS_VIEW_SIZE = 640; 
-    
-    // 1. 널찍한 투명 체크 패턴 생성 (40px 간격으로 큼직하고 눈이 편함)
+    let currentZoom = 1; // 줌 상태 관리 변수
+
     function createGridPattern() {
       const patternCanvas = document.createElement('canvas');
       patternCanvas.width = 40;
@@ -381,14 +395,13 @@
       
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 40, 40);
-      ctx.fillStyle = '#e2e5e9'; // 연한 회색 
+      ctx.fillStyle = '#e2e5e9';
       ctx.fillRect(0, 0, 20, 20);
       ctx.fillRect(20, 20, 20, 20);
 
       return ctx.createPattern(patternCanvas, 'repeat');
     }
 
-    // 고정 640x640 캔버스 초기화
     const canvas = new fabric.Canvas('canvas', {
       width: CANVAS_VIEW_SIZE,
       height: CANVAS_VIEW_SIZE,
@@ -396,8 +409,6 @@
     });
 
     const gridPattern = createGridPattern();
-
-    // 내부에 별도의 비율별 작업 공간(Work Area) 그리기
     let workAreaRect = null;
     let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
 
@@ -405,7 +416,6 @@
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
 
-      // 고정 캔버스(640x640) 내에 딱 맞도록 비율 계산
       const scale = Math.min((CANVAS_VIEW_SIZE - 40) / targetRes.width, (CANVAS_VIEW_SIZE - 40) / targetRes.height);
       const w = targetRes.width * scale;
       const h = targetRes.height * scale;
@@ -418,7 +428,6 @@
         canvas.remove(workAreaRect);
       }
 
-      // 내부 작업 공간 상자: 선택불가, 체크 무늬 배경 적용, 테두리 표시
       workAreaRect = new fabric.Rect({
         left: left,
         top: top,
@@ -433,11 +442,47 @@
       });
 
       canvas.add(workAreaRect);
-      workAreaRect.sendToBack(); // 항상 맨 아래에 배치
+      workAreaRect.sendToBack();
       canvas.renderAll();
     }
 
     updateWorkArea('1:1');
+
+    // --- 🔍 줌(Zoom) 기능 구현 ---
+    const zoomValEl = document.getElementById('zoomVal');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+
+    function setCanvasZoom(zoom) {
+      // 0.5배 ~ 3.0배 사이로 축소/확대 범위 제한
+      currentZoom = Math.max(0.5, Math.min(3, zoom));
+      
+      const center = { x: CANVAS_VIEW_SIZE / 2, y: CANVAS_VIEW_SIZE / 2 };
+      canvas.zoomToPoint(center, currentZoom);
+      zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+    }
+
+    zoomInBtn.addEventListener('click', () => setCanvasZoom(currentZoom + 0.1));
+    zoomOutBtn.addEventListener('click', () => setCanvasZoom(currentZoom - 0.1));
+    zoomResetBtn.addEventListener('click', () => setCanvasZoom(1));
+
+    // Ctrl + 마우스 휠 기반 줌 기능 지원
+    canvas.on('mouse:wheel', function(opt) {
+      if (opt.e.ctrlKey) {
+        let delta = opt.e.deltaY;
+        let zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 3) zoom = 3;
+        if (zoom < 0.5) zoom = 0.5;
+        
+        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        currentZoom = zoom;
+        zoomValEl.textContent = `${Math.round(currentZoom * 100)}%`;
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+      }
+    });
 
     const imageLoader = document.getElementById('imageLoader');
     const jsonLoader = document.getElementById('jsonLoader');
@@ -667,7 +712,7 @@
     canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteBtn(); });
     canvas.on('text:changed', updateLayerPanel);
 
-    // 이미지 및 텍스트 작업 영역 중심 배치
+    // 이미지 및 텍스트 추가
     imageLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -752,11 +797,12 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // [중요] 내보내기 시 투명 작업 구역 영역만 크롭해서 고해상도 PNG 생성
+    // 다운로드 시 확대 상태와 상관없이 정확한 고해상도 영역만 크롭
     downloadBtn.addEventListener('click', function() {
+      const prevZoom = canvas.getZoom();
+      setCanvasZoom(1); // 내보내기 전 줌 리셋
+
       canvas.discardActiveObject();
-      
-      // 내보내기 전 작업 공간 테두리/격자 숨기기
       workAreaRect.set({ strokeWidth: 0, fill: 'transparent' });
       canvas.renderAll();
 
@@ -771,8 +817,8 @@
         multiplier: outputMultiplier
       });
 
-      // 복원
       workAreaRect.set({ strokeWidth: 2, fill: gridPattern });
+      setCanvasZoom(prevZoom); // 기존 줌 상태 복원
       canvas.renderAll();
 
       const link = document.createElement('a');
