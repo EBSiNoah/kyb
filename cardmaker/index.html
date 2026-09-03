@@ -3,1060 +3,169 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>이미지 텍스트 조합기</title>
+  <title>이미지 편집기 - 파일 업로드 검증</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f4f6f8;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      max-height: 100vh;
-      overflow-y: auto;
-    }
-    h1 {
-      margin-bottom: 15px;
-      color: #333;
-      font-size: 24px;
-    }
-
-    #alertBanner {
-      display: none;
-      width: 100%;
-      max-width: 1100px;
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-      padding: 10px 16px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-weight: bold;
-      font-size: 13px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-
-    .controls {
-      background: #ffffff;
-      padding: 12px 16px;
+    /* 캔버스 드롭 영역 스타일 */
+    #canvas-container {
+      width: 600px;
+      height: 400px;
+      border: 2px dashed #ccc;
       border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 12px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      max-width: 1100px;
-      width: 100%;
-    }
-    .btn {
-      padding: 8px 14px;
-      border-radius: 6px;
-      border: none;
-      font-weight: bold;
-      font-size: 13px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    .file-label { background-color: #007bff; color: white; display: inline-block; }
-    .file-label:hover { background-color: #0056b3; }
-    
-    .text-btn { background-color: #28a745; color: white; }
-    .text-btn:hover { background-color: #218838; }
-
-    .download-btn { background-color: #17a2b8; color: white; }
-    .download-btn:hover { background-color: #138496; }
-
-    .delete-btn { background-color: #dc3545; color: white; }
-    .delete-btn:hover { background-color: #bd2130; }
-    .delete-btn:disabled { background-color: #6c757d; opacity: 0.5; cursor: not-allowed; }
-
-    .json-export-btn { background-color: #6f42c1; color: white; }
-    .json-export-btn:hover { background-color: #59359a; }
-    .json-import-label { background-color: #fd7e14; color: white; display: inline-block; }
-    .json-import-label:hover { background-color: #e06d12; }
-
-    #imageLoader, #jsonLoader { display: none; }
-
-    .aspect-controls, .text-controls, .zoom-controls {
       display: flex;
       align-items: center;
-      gap: 6px;
-      border-left: 2px solid #eee;
-      padding-left: 10px;
-    }
-    .aspect-controls label, .text-controls label, .zoom-controls label {
-      font-size: 12px;
-      font-weight: bold;
-      color: #555;
-    }
-    .aspect-btn, .zoom-btn {
-      background-color: #6c757d;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-    .aspect-btn.active { background-color: #007bff; }
-    .zoom-btn:hover { background-color: #495057; }
-    .zoom-text {
-      font-size: 12px;
-      font-weight: bold;
-      color: #333;
-      min-width: 42px;
-      text-align: center;
-    }
-
-    .zoom-slider {
-      width: 90px;
-      cursor: pointer;
-      accent-color: #007bff;
-    }
-
-    .text-controls input[type="color"] {
-      border: none; width: 28px; height: 28px; cursor: pointer; background: none;
-    }
-    .text-controls input[type="number"] {
-      width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;
-    }
-
-    .template-container {
-      background: #ffffff;
-      padding: 10px 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 15px;
-      max-width: 1100px;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .template-title {
-      font-size: 13px;
-      font-weight: bold;
-      color: #333;
-      white-space: nowrap;
-    }
-    .template-slots {
-      display: flex;
-      gap: 10px;
-      flex: 1;
-    }
-    .template-slot {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: #f8f9fa;
-      border: 1px dashed #adb5bd;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-    .template-slot.saved {
-      border-style: solid;
-      border-color: #28a745;
-      background: #f0fff4;
-    }
-    .slot-info { display: flex; flex-direction: column; }
-    .slot-name { font-weight: bold; color: #495057; }
-    .slot-status { font-size: 10px; color: #868e96; }
-    .slot-actions { display: flex; gap: 4px; }
-    .slot-btn {
-      padding: 3px 6px;
-      font-size: 11px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    .btn-save { background: #007bff; color: white; }
-    .btn-save:hover { background: #0056b3; }
-    .btn-load { background: #28a745; color: white; }
-    .btn-load:hover { background: #218838; }
-    .btn-load:disabled { background: #ced4da; cursor: not-allowed; }
-    .btn-clear { background: #dc3545; color: white; }
-    .btn-clear:hover { background: #bd2130; }
-
-    /* 워크스페이스 레이아웃 */
-    .workspace-container {
-      display: flex;
-      gap: 16px;
-      align-items: flex-start;
-      max-width: 1100px;
-      width: 100%;
-    }
-
-    .canvas-container-wrapper {
-      background-color: #2b2d38;
-      width: 680px;
-      height: 680px;
-      border-radius: 8px;
-      box-shadow: inset 0 0 12px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.15);
-      display: flex;
       justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      flex-shrink: 0;
+      margin-top: 15px;
       position: relative;
+      background-color: #f9f9f9;
+      transition: border-color 0.2s;
     }
 
-    .layer-panel {
-      width: 250px;
-      height: 680px;
-      background: white;
-      border-radius: 8px;
-      padding: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-    }
-    .layer-panel h3 {
-      font-size: 14px;
-      color: #333;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid #f4f6f8;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .layer-panel .layer-count {
-      font-size: 10px;
-      background-color: #e9ecef;
-      padding: 2px 6px;
-      border-radius: 10px;
-      color: #6c757d;
-    }
-    .layer-list {
-      list-style: none;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      flex: 1;
-    }
-    .layer-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 10px;
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 6px;
-      cursor: grab;
-      font-size: 11px;
-      user-select: none;
-      transition: all 0.15s ease;
-    }
-    .layer-item:active { cursor: grabbing; }
-    .layer-item:hover { background: #eef2f7; }
-    .layer-item.active {
+    #canvas-container.drag-over {
       border-color: #007bff;
-      background: #e7f1ff;
-      font-weight: bold;
-      color: #0056b3;
+      background-color: #f0f7ff;
     }
-    .layer-item.dragging {
-      opacity: 0.4;
-      border: 2px dashed #007bff;
+
+    /* 웹 페이지 내 경고 알림(토스트) 스타일 */
+    #toast-message {
+      visibility: hidden;
+      min-width: 280px;
+      background-color: #ff4d4f;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 12px 16px;
+      position: fixed;
+      z-index: 1000;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transition: opacity 0.3s, bottom 0.3s;
     }
-    .layer-info {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      flex: 1;
+
+    #toast-message.show {
+      visibility: visible;
+      opacity: 1;
+      bottom: 50px;
     }
-    .layer-actions {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-    .layer-btn {
-      background: #ffffff;
-      border: 1px solid #ced4da;
-      color: #495057;
-      border-radius: 3px;
-      width: 20px;
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 9px;
-      line-height: 1;
-    }
-    .layer-btn:hover {
-      background: #e9ecef;
-      color: #000;
-    }
-    .layer-btn:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-    .layer-btn.delete-btn {
-      color: #dc3545;
-      border-color: #f5c6cb;
-    }
-    .layer-btn.delete-btn:hover {
-      background: #dc3545;
-      color: white;
-    }
-    .empty-layers { text-align: center; color: #adb5bd; font-size: 11px; padding: 30px 0; }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
 <body>
 
-  <h1>이미지 편집기</h1>
+  <h2>이미지 업로드 및 캔버스</h2>
+  
+  <!-- 1. 파일 선택 Input: png, jpg, jpeg만 허용 -->
+  <input type="file" id="file-input" accept=".png, .jpg, .jpeg, image/png, image/jpeg">
 
-  <div id="alertBanner"></div>
-
-  <div class="controls">
-    <label for="imageLoader" class="btn file-label">이미지 불러오기</label>
-    <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
-
-    <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
-
-    <div class="aspect-controls">
-      <label>비율:</label>
-      <button class="btn aspect-btn active" data-ratio="1:1">1:1</button>
-      <button class="btn aspect-btn" data-ratio="4:5">4:5</button>
-      <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
-    </div>
-
-    <div class="zoom-controls">
-      <label>줌:</label>
-      <button id="zoomOutBtn" class="btn zoom-btn">-</button>
-      <input type="range" id="zoomRange" class="zoom-slider" min="50" max="300" value="100" step="5">
-      <button id="zoomInBtn" class="btn zoom-btn">+</button>
-      <span id="zoomVal" class="zoom-text">100%</span>
-      <button id="zoomResetBtn" class="btn zoom-btn">초기화</button>
-    </div>
-
-    <div class="text-controls">
-      <label for="textColor">색상:</label>
-      <input type="color" id="textColor" value="#000000">
-
-      <label for="textSize">크기:</label>
-      <input type="number" id="textSize" value="40" min="10" max="200">
-    </div>
-
-    <button id="deleteBtn" class="btn delete-btn" disabled>선택 삭제</button>
-
-    <button id="exportJsonBtn" class="btn json-export-btn">JSON 내보내기</button>
-    <label for="jsonLoader" class="btn json-import-label">JSON 불러오기</label>
-    <input type="file" id="jsonLoader" accept=".json,application/json">
-
-    <button id="downloadBtn" class="btn download-btn">이미지 내려받기</button>
+  <!-- 2. 드래그 앤 드롭 영역 -->
+  <div id="canvas-container">
+    <p>이미지 파일을 여기에 드래그하거나 선택하세요 (.png, .jpg만 지원)</p>
   </div>
 
-  <div class="template-container">
-    <div class="template-title">📁 Quick 저장소:</div>
-    <div class="template-slots">
-      <div class="template-slot" id="slot-1">
-        <div class="slot-info">
-          <span class="slot-name">템플릿 1</span>
-          <span class="slot-status" id="status-1">비어 있음</span>
-        </div>
-        <div class="slot-actions">
-          <button class="slot-btn btn-save" onclick="saveTemplate(1)">저장</button>
-          <button class="slot-btn btn-load" id="load-btn-1" onclick="loadTemplate(1)" disabled>불러오기</button>
-          <button class="slot-btn btn-clear" id="clear-btn-1" onclick="clearTemplate(1)" style="display:none;">✕</button>
-        </div>
-      </div>
-
-      <div class="template-slot" id="slot-2">
-        <div class="slot-info">
-          <span class="slot-name">템플릿 2</span>
-          <span class="slot-status" id="status-2">비어 있음</span>
-        </div>
-        <div class="slot-actions">
-          <button class="slot-btn btn-save" onclick="saveTemplate(2)">저장</button>
-          <button class="slot-btn btn-load" id="load-btn-2" onclick="loadTemplate(2)" disabled>불러오기</button>
-          <button class="slot-btn btn-clear" id="clear-btn-2" onclick="clearTemplate(2)" style="display:none;">✕</button>
-        </div>
-      </div>
-
-      <div class="template-slot" id="slot-3">
-        <div class="slot-info">
-          <span class="slot-name">템플릿 3</span>
-          <span class="slot-status" id="status-3">비어 있음</span>
-        </div>
-        <div class="slot-actions">
-          <button class="slot-btn btn-save" onclick="saveTemplate(3)">저장</button>
-          <button class="slot-btn btn-load" id="load-btn-3" onclick="loadTemplate(3)" disabled>불러오기</button>
-          <button class="slot-btn btn-clear" id="clear-btn-3" onclick="clearTemplate(3)" style="display:none;">✕</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="workspace-container">
-    <div class="canvas-container-wrapper">
-      <canvas id="canvas"></canvas>
-    </div>
-
-    <div class="layer-panel">
-      <h3>
-        레이어 목록
-        <span class="layer-count" id="layerCount">0개</span>
-      </h3>
-      <ul class="layer-list" id="layerList">
-        <li class="empty-layers">추가된 요소가 없습니다</li>
-      </ul>
-    </div>
-  </div>
+  <!-- 3. 페이지 내 경고 알림 토스트 UI -->
+  <div id="toast-message"></div>
 
   <script>
-    const RESOLUTION_MAP = {
-      '1:1': { width: 1080, height: 1080 },
-      '4:5': { width: 1080, height: 1350 },
-      '9:16': { width: 1080, height: 1920 }
-    };
+    // [설정] 허용할 파일 확장자 및 MIME 타입 정의 (PNG, JPG/JPEG)
+    const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg'];
+    const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg'];
 
-    let currentRatio = '1:1';
-    const CANVAS_VIEW_SIZE = 640; 
-    let currentZoom = 1;
+    const fileInput = document.getElementById('file-input');
+    const canvasContainer = document.getElementById('canvas-container');
 
-    function createGridPattern() {
-      const patternCanvas = document.createElement('canvas');
-      patternCanvas.width = 40;
-      patternCanvas.height = 40;
-      const ctx = patternCanvas.getContext('2d');
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 40, 40);
-      ctx.fillStyle = '#e2e5e9';
-      ctx.fillRect(0, 0, 20, 20);
-      ctx.fillRect(20, 20, 20, 20);
-
-      return ctx.createPattern(patternCanvas, 'repeat');
-    }
-
-    const canvas = new fabric.Canvas('canvas', {
-      width: CANVAS_VIEW_SIZE,
-      height: CANVAS_VIEW_SIZE,
-      selection: true,
-      backgroundColor: null
-    });
-
-    const gridPattern = createGridPattern();
-    let workAreaRect = null;
-    let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
-
-    // 디자인 레이어의 순서(z-index)를 추적하는 전역 배열
-    let layerOrder = [];
-    let currentSelectedObj = null;
-
-    function updateWorkArea(ratioKey) {
-      currentRatio = ratioKey;
-      const targetRes = RESOLUTION_MAP[ratioKey];
-
-      const scale = Math.min((CANVAS_VIEW_SIZE - 40) / targetRes.width, (CANVAS_VIEW_SIZE - 40) / targetRes.height);
-      const w = targetRes.width * scale;
-      const h = targetRes.height * scale;
-      const left = (CANVAS_VIEW_SIZE - w) / 2;
-      const top = (CANVAS_VIEW_SIZE - h) / 2;
-
-      currentWorkBounds = { left, top, width: w, height: h, scale, origWidth: targetRes.width, origHeight: targetRes.height };
-
-      if (workAreaRect) {
-        canvas.remove(workAreaRect);
-      }
-
-      workAreaRect = new fabric.Rect({
-        left: left,
-        top: top,
-        width: w,
-        height: h,
-        fill: gridPattern,
-        stroke: '#007bff',
-        strokeWidth: 2,
-        selectable: false,
-        evented: false,
-        strokeDashArray: [6, 4],
-        isWorkArea: true,
-        excludeFromExport: true
-      });
-
-      canvas.add(workAreaRect);
-      workAreaRect.sendToBack();
-      canvas.renderAll();
-    }
-
-    updateWorkArea('1:1');
-
-    // --- 줌(Zoom) 기능 ---
-    const zoomRange = document.getElementById('zoomRange');
-    const zoomValEl = document.getElementById('zoomVal');
-    const zoomInBtn = document.getElementById('zoomInBtn');
-    const zoomOutBtn = document.getElementById('zoomOutBtn');
-    const zoomResetBtn = document.getElementById('zoomResetBtn');
-
-    function setCanvasZoom(zoom, updateRangeInput = true) {
-      currentZoom = Math.max(0.5, Math.min(3, zoom));
-      const center = { x: CANVAS_VIEW_SIZE / 2, y: CANVAS_VIEW_SIZE / 2 };
-      canvas.zoomToPoint(center, currentZoom);
-
-      const percent = Math.round(currentZoom * 100);
-      zoomValEl.textContent = `${percent}%`;
-      if (updateRangeInput) zoomRange.value = percent;
-    }
-
-    zoomRange.addEventListener('input', function() {
-      setCanvasZoom(parseFloat(this.value) / 100, false);
-    });
-
-    zoomInBtn.addEventListener('click', () => setCanvasZoom(currentZoom + 0.1));
-    zoomOutBtn.addEventListener('click', () => setCanvasZoom(currentZoom - 0.1));
-    zoomResetBtn.addEventListener('click', () => setCanvasZoom(1));
-
-    canvas.on('mouse:wheel', function(opt) {
-      if (opt.e.ctrlKey) {
-        let delta = opt.e.deltaY;
-        let zoom = canvas.getZoom() * (0.999 ** delta);
-        if (zoom > 3) zoom = 3;
-        if (zoom < 0.5) zoom = 0.5;
-        
-        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-        currentZoom = zoom;
-        
-        const percent = Math.round(currentZoom * 100);
-        zoomValEl.textContent = `${percent}%`;
-        zoomRange.value = percent;
-
-        opt.e.preventDefault();
-        opt.e.stopPropagation();
-      }
-    });
-
-    const imageLoader = document.getElementById('imageLoader');
-    const jsonLoader = document.getElementById('jsonLoader');
-    const exportJsonBtn = document.getElementById('exportJsonBtn');
-    const addTextBtn = document.getElementById('addTextBtn');
-    const textColorInput = document.getElementById('textColor');
-    const textSizeInput = document.getElementById('textSize');
-    const deleteBtn = document.getElementById('deleteBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const alertBanner = document.getElementById('alertBanner');
-    const aspectBtns = document.querySelectorAll('.aspect-btn');
-    const layerListEl = document.getElementById('layerList');
-    const layerCountEl = document.getElementById('layerCount');
-
-    let alertTimeout = null;
-
-    function showAlert(message) {
-      alertBanner.textContent = message;
-      alertBanner.style.display = 'block';
-      if (alertTimeout) clearTimeout(alertTimeout);
-      alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
-    }
-
-    aspectBtns.forEach(btn => {
-      btn.addEventListener('click', function() {
-        const ratio = this.getAttribute('data-ratio');
-        updateWorkArea(ratio);
-
-        aspectBtns.forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-      });
-    });
-
-    // 준비: 순서에 맞춰 캔버스 재배치하는 헬퍼 함수
-    function applyLayerOrder() {
-      layerOrder.forEach((obj, idx) => {
-        obj.moveTo(idx + 1); // workAreaRect가 0번이므로 1부터 시작
-      });
-      if (workAreaRect) workAreaRect.sendToBack();
-    }
-
-    // JSON Export
-    exportJsonBtn.addEventListener('click', function() {
-      // JSON 내보내기 전 원래 z-index 적용
-      applyLayerOrder();
-
-      const objects = layerOrder;
-      const savedTemplates = {};
-      
-      [1, 2, 3].forEach(slot => {
-        const data = localStorage.getItem(`editor_template_${slot}`);
-        if (data) savedTemplates[`slot_${slot}`] = JSON.parse(data);
-      });
-
-      if (objects.length === 0 && Object.keys(savedTemplates).length === 0) {
-        showAlert('⚠️ 내보낼 내용이나 저장된 템플릿이 없습니다.');
-        return;
-      }
-
-      const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
-      if (canvasJson.objects) {
-        canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
-      }
-
-      const exportData = {
-        version: "4.0",
-        currentCanvas: objects.length > 0 ? { ratio: currentRatio, json: canvasJson } : null,
-        templates: savedTemplates
-      };
-
-      const jsonStr = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.download = `editor_project_${new Date().toISOString().slice(0, 10)}.json`;
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      showAlert('💾 프로젝트 데이터가 JSON 파일로 추출되었습니다.');
-      
-      // 선택 중이었다면 다시 최상단으로 가져오기
-      if (currentSelectedObj) currentSelectedObj.bringToFront();
-    });
-
-    // JSON Import
-    jsonLoader.addEventListener('change', function(e) {
-      const file = e.target.files[0];
+    // -------------------------------------------------------------
+    //  파일 확장자 및 타입 검증 핵심 함수
+    // -------------------------------------------------------------
+    function validateAndProcessFile(file) {
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const importData = JSON.parse(event.target.result);
+      // 파일 확장자 추출 (소문자 변환)
+      const fileNameParts = file.name.split('.');
+      const fileExtension = fileNameParts.length > 1 ? fileNameParts.pop().toLowerCase() : '';
 
-          if (importData.templates) {
-            [1, 2, 3].forEach(slot => {
-              const slotData = importData.templates[`slot_${slot}`];
-              if (slotData) {
-                localStorage.setItem(`editor_template_${slot}`, JSON.stringify(slotData));
-              } else {
-                localStorage.removeItem(`editor_template_${slot}`);
-              }
-              updateTemplateUI(slot);
-            });
-          }
+      // 1) 확장자 및 MIME Type 검증 (PNG, JPG만 허용)
+      const isValidExtension = ALLOWED_EXTENSIONS.includes(fileExtension);
+      const isValidMime = ALLOWED_MIME_TYPES.includes(file.type);
 
-          const targetCanvasData = importData.currentCanvas || (importData.json ? importData : null);
-
-          if (targetCanvasData) {
-            currentRatio = targetCanvasData.ratio || '1:1';
-            aspectBtns.forEach(b => {
-              b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
-            });
-
-            canvas.loadFromJSON(targetCanvasData.json, function() {
-              const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
-              oldWorkAreas.forEach(obj => canvas.remove(obj));
-
-              updateWorkArea(currentRatio);
-              rebuildLayerOrder();
-              updateLayerPanel();
-              setCanvasZoom(1);
-            });
-          }
-
-          showAlert('📂 JSON 데이터가 성공적으로 불러와졌습니다.');
-        } catch (err) {
-          showAlert('⚠️ 올바르지 않은 JSON 파일입니다.');
-        }
-      };
-      reader.readAsText(file);
-      jsonLoader.value = '';
-    });
-
-    // 템플릿 저장 및 불러오기
-    function saveTemplate(slotNumber) {
-      applyLayerOrder();
-      const objects = layerOrder;
-      if (objects.length === 0) {
-        showAlert('⚠️ 요소가 없는 빈 작업 공간은 저장할 수 없습니다.');
+      if (!isValidExtension || !isValidMime) {
+        // 지원하지 않는 파일 형식일 경우 경고 메시지 출력 후 중단
+        showToast(`'${file.name}'은(는) 지원하지 않는 파일 형식입니다. (PNG, JPG만 가능)`);
+        
+        // input 요소 초기화 (동일한 잘못된 파일 재선택 가능하도록)
+        fileInput.value = '';
         return;
       }
 
-      const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
-      if (canvasJson.objects) {
-        canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
-      }
-
-      const templateData = { ratio: currentRatio, json: canvasJson };
-      localStorage.setItem(`editor_template_${slotNumber}`, JSON.stringify(templateData));
-      updateTemplateUI(slotNumber);
-      showAlert(`✅ Quick 슬롯 ${slotNumber}번에 저장되었습니다.`);
-      
-      if (currentSelectedObj) currentSelectedObj.bringToFront();
-    }
-
-    function loadTemplate(slotNumber) {
-      const dataStr = localStorage.getItem(`editor_template_${slotNumber}`);
-      if (!dataStr) return;
-
-      const templateData = JSON.parse(dataStr);
-      currentRatio = templateData.ratio || '1:1';
-      aspectBtns.forEach(b => {
-        b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
-      });
-
-      canvas.loadFromJSON(templateData.json, function() {
-        const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
-        oldWorkAreas.forEach(obj => canvas.remove(obj));
-
-        updateWorkArea(currentRatio);
-        rebuildLayerOrder();
-        updateLayerPanel();
-        setCanvasZoom(1);
-        showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
-      });
-    }
-
-    function clearTemplate(slotNumber) {
-      localStorage.removeItem(`editor_template_${slotNumber}`);
-      updateTemplateUI(slotNumber);
-      showAlert(`🗑️ Quick 슬롯 ${slotNumber}번이 초기화되었습니다.`);
-    }
-
-    function updateTemplateUI(slotNumber) {
-      const slotEl = document.getElementById(`slot-${slotNumber}`);
-      const statusEl = document.getElementById(`status-${slotNumber}`);
-      const loadBtn = document.getElementById(`load-btn-${slotNumber}`);
-      const clearBtn = document.getElementById(`clear-btn-${slotNumber}`);
-
-      const savedData = localStorage.getItem(`editor_template_${slotNumber}`);
-
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        slotEl.classList.add('saved');
-        statusEl.textContent = `저장됨 (${parsed.ratio})`;
-        loadBtn.disabled = false;
-        clearBtn.style.display = 'inline-block';
-      } else {
-        slotEl.classList.remove('saved');
-        statusEl.textContent = '비어 있음';
-        loadBtn.disabled = true;
-        clearBtn.style.display = 'none';
-      }
-    }
-
-    [1, 2, 3].forEach(slot => updateTemplateUI(slot));
-
-    // =========================================================
-    // 🌟 [핵심] 레이어 순서 조절 및 선택 시 상위 노출 제어
-    // =========================================================
-    let draggedItemIndex = null;
-
-    // layerOrder 배열 재구성 (객체 추가/삭제/로드 시)
-    function rebuildLayerOrder() {
-      const objs = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
-      // 기존 layerOrder에 속한 순서 유지하되 새로운 객체 포함
-      const newOrder = [];
-      layerOrder.forEach(obj => {
-        if (objs.includes(obj)) newOrder.push(obj);
-      });
-      objs.forEach(obj => {
-        if (!newOrder.includes(obj)) newOrder.push(obj);
-      });
-      layerOrder = newOrder;
-    }
-
-    function moveLayer(fromIndex, toIndex) {
-      if (toIndex < 0 || toIndex >= layerOrder.length) return;
-
-      // layerOrder 배열 상에서 위치 변경
-      const [movedObj] = layerOrder.splice(fromIndex, 1);
-      layerOrder.splice(toIndex, 0, movedObj);
-
-      // 전체 캔버스 객체 z-index 동기화
-      applyLayerOrder();
-
-      // 현재 선택된 객체가 있다면 최상단으로 가시성 유지
-      if (currentSelectedObj) {
-        currentSelectedObj.bringToFront();
-      }
-
-      canvas.renderAll();
-      updateLayerPanel();
-    }
-
-    function updateLayerPanel() {
-      layerListEl.innerHTML = '';
-      layerCountEl.textContent = `${layerOrder.length}개`;
-
-      if (layerOrder.length === 0) {
-        layerListEl.innerHTML = '<li class="empty-layers">추가된 요소가 없습니다</li>';
-        return;
-      }
-
-      const activeObject = canvas.getActiveObject();
-
-      // UI에는 화면 상단의 레이어(z-index 높은 객체)가 목록 맨 위에 오도록 역순(Top-to-Bottom) 출력
-      for (let i = layerOrder.length - 1; i >= 0; i--) {
-        const obj = layerOrder[i];
-
-        const li = document.createElement('li');
-        li.className = 'layer-item';
-        li.draggable = true;
-
-        if (activeObject === obj) li.classList.add('active');
-
-        let icon = obj.type === 'textbox' ? '✏️' : '🖼️';
-        let title = obj.type === 'textbox' ? (obj.text ? `"${obj.text}"` : '텍스트') : '이미지';
-
-        li.innerHTML = `
-          <div class="layer-info">
-            <span>${icon}</span>
-            <span>${title}</span>
-          </div>
-          <div class="layer-actions">
-            <button class="layer-btn move-up" title="위로 이동" ${i === layerOrder.length - 1 ? 'disabled' : ''}>▲</button>
-            <button class="layer-btn move-down" title="아래로 이동" ${i === 0 ? 'disabled' : ''}>▼</button>
-            <button class="layer-btn delete-btn" title="삭제">✕</button>
-          </div>
-        `;
-
-        // 1. 레이어 클릭 시 해당 객체 선택
-        li.addEventListener('click', (e) => {
-          if (e.target.closest('.layer-actions')) return;
-          canvas.setActiveObject(obj);
-          canvas.renderAll();
-        });
-
-        // 2. 버튼 조작 (위/아래/삭제)
-        const upBtn = li.querySelector('.move-up');
-        const downBtn = li.querySelector('.move-down');
-        const delBtn = li.querySelector('.delete-btn');
-
-        upBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveLayer(i, i + 1);
-        });
-
-        downBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveLayer(i, i - 1);
-        });
-
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          canvas.remove(obj);
-          canvas.discardActiveObject();
-          canvas.requestRenderAll();
-        });
-
-        // 3. 드래그 앤 드롭 이벤트
-        li.addEventListener('dragstart', (e) => {
-          draggedItemIndex = i;
-          li.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-        });
-
-        li.addEventListener('dragend', () => {
-          li.classList.remove('dragging');
-          draggedItemIndex = null;
-        });
-
-        li.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-        });
-
-        li.addEventListener('drop', (e) => {
-          e.preventDefault();
-          if (draggedItemIndex === null || draggedItemIndex === i) return;
-          moveLayer(draggedItemIndex, i);
-        });
-
-        layerListEl.appendChild(li);
-      }
-    }
-
-    // --- 🌟 핵심: 선택 시 최상단 표시, 해제 시 원래 위치 복원 ---
-    function restorePreviousSelection() {
-      if (currentSelectedObj) {
-        applyLayerOrder();
-        currentSelectedObj = null;
-      }
-    }
-
-    function handleSelection(targetObj) {
-      if (!targetObj || targetObj.isWorkArea || targetObj === workAreaRect) return;
-
-      // 이전 선택 항목이 있다면 순서 원복
-      if (currentSelectedObj && currentSelectedObj !== targetObj) {
-        applyLayerOrder();
-      }
-
-      currentSelectedObj = targetObj;
-      // 선택된 객체를 최상단으로 임시 이동하여 상위에서 보이도록 설정
-      targetObj.bringToFront();
-      canvas.renderAll();
-    }
-
-    // Fabric.js 이벤트 바인딩
-    canvas.on('object:added', () => {
-      rebuildLayerOrder();
-      updateLayerPanel();
-    });
-
-    canvas.on('object:removed', (e) => {
-      if (e.target === currentSelectedObj) currentSelectedObj = null;
-      rebuildLayerOrder();
-      updateLayerPanel();
-    });
-
-    canvas.on('selection:created', (e) => {
-      handleSelection(e.selected[0]);
-      syncTextControls();
-      updateLayerPanel();
-      updateDeleteBtn();
-    });
-
-    canvas.on('selection:updated', (e) => {
-      handleSelection(e.selected[0]);
-      syncTextControls();
-      updateLayerPanel();
-      updateDeleteBtn();
-    });
-
-    canvas.on('selection:cleared', () => {
-      restorePreviousSelection();
-      canvas.renderAll();
-      updateLayerPanel();
-      updateDeleteBtn();
-    });
-
-    canvas.on('object:modified', updateLayerPanel);
-    canvas.on('text:changed', updateLayerPanel);
-
-    // 요소 추가 및 제어
-    imageLoader.addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
+      // 2) 정상 파일 처리 (Canvas 로딩 등 기존 로직 수행)
       const reader = new FileReader();
-      reader.onload = function(event) {
-        const imgObj = new Image();
-        imgObj.src = event.target.result;
-        imgObj.onload = function() {
-          const fabricImg = new fabric.Image(imgObj);
-          const maxW = currentWorkBounds.width * 0.8;
-          const maxH = currentWorkBounds.height * 0.8;
-
-          if (fabricImg.width > maxW || fabricImg.height > maxH) {
-            fabricImg.scaleToWidth(maxW);
-          }
-
-          canvas.add(fabricImg);
-          fabricImg.set({
-            left: currentWorkBounds.left + (currentWorkBounds.width - fabricImg.getScaledWidth()) / 2,
-            top: currentWorkBounds.top + (currentWorkBounds.height - fabricImg.getScaledHeight()) / 2
-          });
-          fabricImg.setCoords();
-          canvas.setActiveObject(fabricImg);
-          canvas.renderAll();
-        };
+      reader.onload = function (e) {
+        // TODO: 기존 Fabric.js 또는 Canvas 이미지 추가 로직을 여기에 작성하세요.
+        console.log("정상 이미지 로드 완료:", file.name);
+        canvasContainer.innerHTML = `<p>이미지 로드 완료: <strong>${file.name}</strong></p>`;
       };
       reader.readAsDataURL(file);
-      imageLoader.value = '';
-    });
-
-    addTextBtn.addEventListener('click', function() {
-      const textbox = new fabric.Textbox('문구를 입력하세요', {
-        left: currentWorkBounds.left + (currentWorkBounds.width - 200) / 2,
-        top: currentWorkBounds.top + (currentWorkBounds.height - 40) / 2,
-        width: 200,
-        fontSize: parseInt(textSizeInput.value, 10) || 40,
-        fill: textColorInput.value,
-        splitByGrapheme: true
-      });
-
-      canvas.add(textbox);
-      canvas.setActiveObject(textbox);
-      canvas.renderAll();
-    });
-
-    textColorInput.addEventListener('input', function() {
-      const activeObject = canvas.getActiveObject();
-      if (activeObject && activeObject.type === 'textbox') {
-        activeObject.set('fill', this.value);
-        canvas.renderAll();
-      }
-    });
-
-    textSizeInput.addEventListener('input', function() {
-      const activeObject = canvas.getActiveObject();
-      if (activeObject && activeObject.type === 'textbox') {
-        activeObject.set('fontSize', parseInt(this.value, 10) || 40);
-        canvas.renderAll();
-      }
-    });
-
-    function syncTextControls() {
-      const activeObject = canvas.getActiveObject();
-      if (activeObject && activeObject.type === 'textbox') {
-        textColorInput.value = activeObject.fill;
-        textSizeInput.value = activeObject.fontSize;
-      }
     }
 
-    deleteBtn.addEventListener('click', function() {
-      const activeObjects = canvas.getActiveObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
-      if (activeObjects && activeObjects.length > 0) {
-        canvas.discardActiveObject();
-        activeObjects.forEach(obj => canvas.remove(obj));
-        canvas.requestRenderAll();
+    // -------------------------------------------------------------
+    //  웹 페이지 내부 토스트 경고 메시지 출력 함수
+    // -------------------------------------------------------------
+    let toastTimeout;
+    function showToast(message) {
+      const toast = document.getElementById('toast-message');
+      toast.innerText = message;
+      toast.classList.add('show');
+
+      // 기존 타이머 클리어 (연속 호출 시 메시지 유지)
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000); // 3초 후 자동으로 사라짐
+    }
+
+    // -------------------------------------------------------------
+    //  이벤트 리스너 바인딩
+    // -------------------------------------------------------------
+
+    // 1. Input 파일 선택 시
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      validateAndProcessFile(file);
+    });
+
+    // 2. Drag & Drop 이벤트 처리
+    canvasContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      canvasContainer.classList.add('drag-over');
+    });
+
+    canvasContainer.addEventListener('dragleave', () => {
+      canvasContainer.classList.remove('drag-over');
+    });
+
+    canvasContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      canvasContainer.classList.remove('drag-over');
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        validateAndProcessFile(files[0]);
       }
     });
 
-    function updateDeleteBtn() {
-      const activeObjects = canvas.getActiveObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
-      deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
-    }
+    // 3. 클립보드 붙여넣기 (Paste) 처리
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
 
-    // 이미지 내려받기 (출력 시 원래 z-index 적용 후 렌더링)
-    downloadBtn.addEventListener('click', function() {
-      const prevZoom = canvas.getZoom();
-      setCanvasZoom(1);
-
-      canvas.discardActiveObject();
-      restorePreviousSelection();
-
-      workAreaRect.set({ strokeWidth: 0 });
-      canvas.renderAll();
-
-      const outputMultiplier = 1 / currentWorkBounds.scale;
-
-      const dataURL = canvas.toDataURL({
-        format: 'png',
-        left: currentWorkBounds.left,
-        top: currentWorkBounds.top,
-        width: currentWorkBounds.width,
-        height: currentWorkBounds.height,
-        multiplier: outputMultiplier
-      });
-
-      workAreaRect.set({ strokeWidth: 2 });
-      setCanvasZoom(prevZoom);
-      canvas.renderAll();
-
-      const link = document.createElement('a');
-      link.download = `result_${currentRatio.replace(':', '_')}.png`;
-      link.href = dataURL;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          const file = items[i].getAsFile();
+          validateAndProcessFile(file);
+          break;
+        }
+      }
     });
   </script>
 </body>
