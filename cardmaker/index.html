@@ -170,7 +170,7 @@
     .btn-clear { background: #dc3545; color: white; }
     .btn-clear:hover { background: #bd2130; }
 
-    /* 전체 메인 워크스페이스 레이아웃 */
+    /* 메인 워크스페이스 레이아웃 */
     .workspace-container {
       display: flex;
       gap: 16px;
@@ -179,13 +179,13 @@
       width: 100%;
     }
 
-    /* 확장된 캔버스 상자 패널 (680px) */
+    /* 큰 고정 캔버스 프레임 (680px) */
     .canvas-container-wrapper {
-      background-color: #1e1e24; /* 작업대 배경 다크톤으로 구분 */
+      background-color: #2b2d38; /* 외부 바깥 공간 어두운 보라/그레이 톤 */
       width: 680px;
       height: 680px;
       border-radius: 8px;
-      box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.15);
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.15);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -193,24 +193,11 @@
       flex-shrink: 0;
       position: relative;
     }
-    
-    /* 캔버스 내부 작업 영역 (투명 체크판 패턴) */
-    .canvas-container {
-      background-image: linear-gradient(45deg, #cccccc 25%, transparent 25%), 
-                        linear-gradient(-45deg, #cccccc 25%, transparent 25%), 
-                        linear-gradient(45deg, transparent 75%, #cccccc 75%), 
-                        linear-gradient(-45deg, transparent 75%, #cccccc 75%);
-      background-size: 16px 16px;
-      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-      background-color: #ffffff;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.2);
-    }
 
-    /* 축소된 레이어 패널 (240px 너비) */
+    /* 레이어 패널 (220px 너비) */
     .layer-panel {
-      width: 240px;
-      height: 680px; /* 캔버스 상자와 동일 높이 맞춤 */
+      width: 220px;
+      height: 680px;
       background: white;
       border-radius: 8px;
       padding: 14px;
@@ -292,7 +279,7 @@
     <button id="addTextBtn" class="btn text-btn">글자 상자 추가</button>
 
     <div class="aspect-controls">
-      <label>해상도 비율:</label>
+      <label>작업 영역 비율:</label>
       <button class="btn aspect-btn active" data-ratio="1:1">1:1</button>
       <button class="btn aspect-btn" data-ratio="4:5">4:5</button>
       <button class="btn aspect-btn" data-ratio="9:16">9:16</button>
@@ -357,12 +344,10 @@
   </div>
 
   <div class="workspace-container">
-    <!-- 크기 확대한 캔버스 및 내부에 비율별 작업 공간 표시 -->
     <div class="canvas-container-wrapper">
       <canvas id="canvas"></canvas>
     </div>
 
-    <!-- 간소화된 레이어 선택 영역 -->
     <div class="layer-panel">
       <h3>
         레이어 목록
@@ -375,6 +360,7 @@
   </div>
 
   <script>
+    // 내보낼 해상도 스펙
     const RESOLUTION_MAP = {
       '1:1': { width: 1080, height: 1080 },
       '4:5': { width: 1080, height: 1350 },
@@ -382,12 +368,76 @@
     };
 
     let currentRatio = '1:1';
-    // 키워진 프레임(680px) 안에서 여백(40px)을 남긴 최대 작업 크기
-    const DISPLAY_MAX_SIZE = 640; 
+    
+    // 고정 캔버스 크기 (상자 안에서 전체 판)
+    const CANVAS_VIEW_SIZE = 640; 
+    
+    // 1. 널찍한 투명 체크 패턴 생성 (40px 간격으로 큼직하고 눈이 편함)
+    function createGridPattern() {
+      const patternCanvas = document.createElement('canvas');
+      patternCanvas.width = 40;
+      patternCanvas.height = 40;
+      const ctx = patternCanvas.getContext('2d');
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 40, 40);
+      ctx.fillStyle = '#e2e5e9'; // 연한 회색 
+      ctx.fillRect(0, 0, 20, 20);
+      ctx.fillRect(20, 20, 20, 20);
 
+      return ctx.createPattern(patternCanvas, 'repeat');
+    }
+
+    // 고정 640x640 캔버스 초기화
     const canvas = new fabric.Canvas('canvas', {
-      backgroundColor: null
+      width: CANVAS_VIEW_SIZE,
+      height: CANVAS_VIEW_SIZE,
+      selection: true
     });
+
+    const gridPattern = createGridPattern();
+
+    // 내부에 별도의 비율별 작업 공간(Work Area) 그리기
+    let workAreaRect = null;
+    let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
+
+    function updateWorkArea(ratioKey) {
+      currentRatio = ratioKey;
+      const targetRes = RESOLUTION_MAP[ratioKey];
+
+      // 고정 캔버스(640x640) 내에 딱 맞도록 비율 계산
+      const scale = Math.min((CANVAS_VIEW_SIZE - 40) / targetRes.width, (CANVAS_VIEW_SIZE - 40) / targetRes.height);
+      const w = targetRes.width * scale;
+      const h = targetRes.height * scale;
+      const left = (CANVAS_VIEW_SIZE - w) / 2;
+      const top = (CANVAS_VIEW_SIZE - h) / 2;
+
+      currentWorkBounds = { left, top, width: w, height: h, scale, origWidth: targetRes.width, origHeight: targetRes.height };
+
+      if (workAreaRect) {
+        canvas.remove(workAreaRect);
+      }
+
+      // 내부 작업 공간 상자: 선택불가, 체크 무늬 배경 적용, 테두리 표시
+      workAreaRect = new fabric.Rect({
+        left: left,
+        top: top,
+        width: w,
+        height: h,
+        fill: gridPattern,
+        stroke: '#007bff',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+        strokeDashArray: [6, 4]
+      });
+
+      canvas.add(workAreaRect);
+      workAreaRect.sendToBack(); // 항상 맨 아래에 배치
+      canvas.renderAll();
+    }
+
+    updateWorkArea('1:1');
 
     const imageLoader = document.getElementById('imageLoader');
     const jsonLoader = document.getElementById('jsonLoader');
@@ -399,7 +449,6 @@
     const downloadBtn = document.getElementById('downloadBtn');
     const alertBanner = document.getElementById('alertBanner');
     const aspectBtns = document.querySelectorAll('.aspect-btn');
-    
     const layerListEl = document.getElementById('layerList');
     const layerCountEl = document.getElementById('layerCount');
 
@@ -412,32 +461,10 @@
       alertTimeout = setTimeout(() => { alertBanner.style.display = 'none'; }, 4000);
     }
 
-    // 작업 공간 내부 해상도 비율 변경 로직
-    function updateCanvasResolution(ratioKey) {
-      currentRatio = ratioKey;
-      const targetRes = RESOLUTION_MAP[ratioKey];
-
-      // 1. Fabric.js 해상도 적용
-      canvas.setWidth(targetRes.width);
-      canvas.setHeight(targetRes.height);
-
-      // 2. 캔버스 프레임 내부에 비율에 맞춘 화면 축소 스케일링
-      const scale = Math.min(DISPLAY_MAX_SIZE / targetRes.width, DISPLAY_MAX_SIZE / targetRes.height);
-
-      canvas.setDimensions({
-        width: targetRes.width * scale,
-        height: targetRes.height * scale
-      }, { cssOnly: true });
-
-      canvas.renderAll();
-    }
-
-    updateCanvasResolution('1:1');
-
     aspectBtns.forEach(btn => {
       btn.addEventListener('click', function() {
         const ratio = this.getAttribute('data-ratio');
-        updateCanvasResolution(ratio);
+        updateWorkArea(ratio);
 
         aspectBtns.forEach(b => b.classList.remove('active'));
         this.classList.add('active');
@@ -446,7 +473,7 @@
 
     // JSON Export / Import
     exportJsonBtn.addEventListener('click', function() {
-      const hasObjects = canvas.getObjects().length > 0;
+      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
       const savedTemplates = {};
       
       [1, 2, 3].forEach(slot => {
@@ -454,14 +481,14 @@
         if (data) savedTemplates[`slot_${slot}`] = JSON.parse(data);
       });
 
-      if (!hasObjects && Object.keys(savedTemplates).length === 0) {
-        showAlert('⚠️ 내보낼 캔버스 내용이나 저장된 템플릿이 없습니다.');
+      if (objects.length === 0 && Object.keys(savedTemplates).length === 0) {
+        showAlert('⚠️ 내보낼 내용이나 저장된 템플릿이 없습니다.');
         return;
       }
 
       const exportData = {
-        version: "2.0",
-        currentCanvas: hasObjects ? { ratio: currentRatio, json: canvas.toJSON() } : null,
+        version: "3.0",
+        currentCanvas: objects.length > 0 ? { ratio: currentRatio, json: canvas.toJSON() } : null,
         templates: savedTemplates
       };
 
@@ -477,7 +504,7 @@
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      showAlert('💾 캔버스 및 템플릿 모음이 JSON 파일로 추출되었습니다.');
+      showAlert('💾 프로젝트 데이터가 JSON 파일로 추출되었습니다.');
     });
 
     jsonLoader.addEventListener('change', function(e) {
@@ -508,16 +535,14 @@
             aspectBtns.forEach(b => {
               b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
             });
-            updateCanvasResolution(currentRatio);
 
             canvas.loadFromJSON(targetCanvasData.json, function() {
-              canvas.backgroundColor = null;
-              canvas.renderAll();
+              updateWorkArea(currentRatio);
               updateLayerPanel();
             });
           }
 
-          showAlert('📂 JSON 프로젝트와 템플릿이 성공적으로 복원되었습니다.');
+          showAlert('📂 JSON 데이터가 성공적으로 불러와졌습니다.');
         } catch (err) {
           showAlert('⚠️ 올바르지 않은 JSON 파일입니다.');
         }
@@ -528,8 +553,9 @@
 
     // Quick Storage
     function saveTemplate(slotNumber) {
-      if (canvas.getObjects().length === 0) {
-        showAlert('⚠️ 빈 캔버스는 저장할 수 없습니다.');
+      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
+      if (objects.length === 0) {
+        showAlert('⚠️ 요소가 없는 빈 작업 공간은 저장할 수 없습니다.');
         return;
       }
       const templateData = { ratio: currentRatio, json: canvas.toJSON() };
@@ -547,11 +573,9 @@
       aspectBtns.forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
       });
-      updateCanvasResolution(currentRatio);
 
       canvas.loadFromJSON(templateData.json, function() {
-        canvas.backgroundColor = null;
-        canvas.renderAll();
+        updateWorkArea(currentRatio);
         updateLayerPanel();
         showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
       });
@@ -587,9 +611,9 @@
 
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
-    // 레이어 관리 및 캔버스 제어
+    // 레이어 관리
     function updateLayerPanel() {
-      const objects = canvas.getObjects();
+      const objects = canvas.getObjects().filter(o => o !== workAreaRect);
       layerListEl.innerHTML = '';
       layerCountEl.textContent = `${objects.length}개`;
 
@@ -643,6 +667,7 @@
     canvas.on('selection:cleared', () => { updateLayerPanel(); updateDeleteBtn(); });
     canvas.on('text:changed', updateLayerPanel);
 
+    // 이미지 및 텍스트 작업 영역 중심 배치
     imageLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -653,15 +678,18 @@
         imgObj.src = event.target.result;
         imgObj.onload = function() {
           const fabricImg = new fabric.Image(imgObj);
-          const maxWidth = canvas.width * 0.8;
-          const maxHeight = canvas.height * 0.8;
+          const maxW = currentWorkBounds.width * 0.8;
+          const maxH = currentWorkBounds.height * 0.8;
 
-          if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
-            fabricImg.scaleToWidth(maxWidth);
+          if (fabricImg.width > maxW || fabricImg.height > maxH) {
+            fabricImg.scaleToWidth(maxW);
           }
 
           canvas.add(fabricImg);
-          fabricImg.center();
+          fabricImg.set({
+            left: currentWorkBounds.left + (currentWorkBounds.width - fabricImg.getScaledWidth()) / 2,
+            top: currentWorkBounds.top + (currentWorkBounds.height - fabricImg.getScaledHeight()) / 2
+          });
           fabricImg.setCoords();
           canvas.setActiveObject(fabricImg);
           canvas.renderAll();
@@ -673,9 +701,9 @@
 
     addTextBtn.addEventListener('click', function() {
       const textbox = new fabric.Textbox('문구를 입력하세요', {
-        left: canvas.width / 2 - 150,
-        top: canvas.height / 2 - 30,
-        width: 300,
+        left: currentWorkBounds.left + (currentWorkBounds.width - 200) / 2,
+        top: currentWorkBounds.top + (currentWorkBounds.height - 40) / 2,
+        width: 200,
         fontSize: parseInt(textSizeInput.value, 10) || 40,
         fill: textColorInput.value,
         splitByGrapheme: true
@@ -711,7 +739,7 @@
     }
 
     deleteBtn.addEventListener('click', function() {
-      const activeObjects = canvas.getActiveObjects();
+      const activeObjects = canvas.getActiveObjects().filter(o => o !== workAreaRect);
       if (activeObjects && activeObjects.length > 0) {
         canvas.discardActiveObject();
         activeObjects.forEach(obj => canvas.remove(obj));
@@ -720,19 +748,32 @@
     });
 
     function updateDeleteBtn() {
-      const activeObjects = canvas.getActiveObjects();
+      const activeObjects = canvas.getActiveObjects().filter(o => o !== workAreaRect);
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
+    // [중요] 내보내기 시 투명 작업 구역 영역만 크롭해서 고해상도 PNG 생성
     downloadBtn.addEventListener('click', function() {
       canvas.discardActiveObject();
+      
+      // 내보내기 전 작업 공간 테두리/격자 숨기기
+      workAreaRect.set({ strokeWidth: 0, fill: 'transparent' });
       canvas.renderAll();
+
+      const outputMultiplier = 1 / currentWorkBounds.scale;
 
       const dataURL = canvas.toDataURL({
         format: 'png',
-        quality: 1.0,
-        multiplier: 1
+        left: currentWorkBounds.left,
+        top: currentWorkBounds.top,
+        width: currentWorkBounds.width,
+        height: currentWorkBounds.height,
+        multiplier: outputMultiplier
       });
+
+      // 복원
+      workAreaRect.set({ strokeWidth: 2, fill: gridPattern });
+      canvas.renderAll();
 
       const link = document.createElement('a');
       link.download = `result_${currentRatio.replace(':', '_')}.png`;
