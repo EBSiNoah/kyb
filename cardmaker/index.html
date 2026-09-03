@@ -1,1 +1,139 @@
-<head></head>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이미지 텍스트 조합기</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .controls {
+      background: #ffffff;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    /* 기본 file input을 깔끔한 버튼 스타일로 커스텀 */
+    .file-label {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    .file-label:hover {
+      background-color: #0056b3;
+    }
+    #imageLoader {
+      display: none; /* 실제 input은 숨김 처리 */
+    }
+    .canvas-container-wrapper {
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    canvas {
+      border: 1px solid #ddd;
+    }
+  </style>
+  <!-- Fabric.js CDN (드래그, 리사이즈, 레이어 조작을 간편하게 해주는 라이브러리) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+</head>
+<body>
+
+  <h1>이미지 편집기</h1>
+
+  <div class="controls">
+    <!-- PNG, JPEG 파일로 확장자 제한 (accept 속성) -->
+    <label for="imageLoader" class="file-label">PC에서 이미지 불러오기</label>
+    <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/jpg">
+  </div>
+
+  <div class="canvas-container-wrapper">
+    <!-- 작업판 (캔버스) -->
+    <canvas id="canvas" width="600" height="600"></canvas>
+  </div>
+
+  <script>
+    // 1. Fabric.js 캔버스 초기화
+    const canvas = new fabric.Canvas('canvas', {
+      backgroundColor: '#ffffff'
+    });
+
+    const imageLoader = document.getElementById('imageLoader');
+
+    // 2. 파일 선택 이벤트 리스너
+    imageLoader.addEventListener('change', handleImageUpload);
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 파일 확장자/MIME 타입 검증 (PNG, JPEG)
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!validTypes.includes(file.type)) {
+        alert('PNG 또는 JPEG(JPG) 파일만 업로드할 수 있습니다.');
+        imageLoader.value = ''; // 선택 초기화
+        return;
+      }
+
+      // FileReader를 통한 로컬 파일 읽기
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        const imgObj = new Image();
+        imgObj.src = event.target.result;
+
+        imgObj.onload = function() {
+          // Fabric.js 이미지 객체 생성
+          const fabricImg = new fabric.Image(imgObj);
+
+          // 작업판(600x600)보다 이미지가 클 경우 자동으로 비율 맞춰 축소
+          const maxWidth = canvas.width * 0.8;
+          const maxHeight = canvas.height * 0.8;
+
+          if (fabricImg.width > maxWidth || fabricImg.height > maxHeight) {
+            fabricImg.scaleToWidth(maxWidth);
+          }
+
+          // 캔버스 중앙에 배치
+          canvas.add(fabricImg);
+          fabricImg.center();
+          fabricImg.setCoords();
+          
+          // 추가된 이미지 선택 상태로 변경
+          canvas.setActiveObject(fabricImg);
+          canvas.renderAll();
+        };
+      };
+
+      reader.readAsDataURL(file);
+      
+      // 동일한 파일을 다시 선택해도 change 이벤트가 동작하도록 input 값 리셋
+      imageLoader.value = '';
+    }
+  </script>
+</body>
+</html>
