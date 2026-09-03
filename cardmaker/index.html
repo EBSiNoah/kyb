@@ -184,7 +184,7 @@
     .btn-clear { background: #dc3545; color: white; }
     .btn-clear:hover { background: #bd2130; }
 
-    /* 메인 워크스페이스 레이아웃 */
+    /* 워크스페이스 레이아웃 */
     .workspace-container {
       display: flex;
       gap: 16px;
@@ -193,7 +193,6 @@
       width: 100%;
     }
 
-    /* 큰 고정 캔버스 프레임 (680px) */
     .canvas-container-wrapper {
       background-color: #2b2d38;
       width: 680px;
@@ -208,9 +207,9 @@
       position: relative;
     }
 
-    /* 레이어 패널 (220px 너비) */
+    /* 레이어 패널 스타일 확장 */
     .layer-panel {
-      width: 220px;
+      width: 250px;
       height: 680px;
       background: white;
       border-radius: 8px;
@@ -249,13 +248,16 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 8px;
+      padding: 8px 10px;
       background: #f8f9fa;
       border: 1px solid #e9ecef;
-      border-radius: 5px;
-      cursor: pointer;
+      border-radius: 6px;
+      cursor: grab;
       font-size: 11px;
+      user-select: none;
+      transition: all 0.15s ease;
     }
+    .layer-item:active { cursor: grabbing; }
     .layer-item:hover { background: #eef2f7; }
     .layer-item.active {
       border-color: #007bff;
@@ -263,19 +265,54 @@
       font-weight: bold;
       color: #0056b3;
     }
+    .layer-item.dragging {
+      opacity: 0.4;
+      border: 2px dashed #007bff;
+    }
     .layer-info {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      flex: 1;
     }
-    .layer-delete-btn {
-      background: none; border: none; color: #dc3545; font-size: 12px;
-      cursor: pointer; padding: 2px; opacity: 0.6;
+    .layer-actions {
+      display: flex;
+      align-items: center;
+      gap: 3px;
     }
-    .layer-delete-btn:hover { opacity: 1; }
+    .layer-btn {
+      background: #ffffff;
+      border: 1px solid #ced4da;
+      color: #495057;
+      border-radius: 3px;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 9px;
+      line-height: 1;
+    }
+    .layer-btn:hover {
+      background: #e9ecef;
+      color: #000;
+    }
+    .layer-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .layer-btn.delete-btn {
+      color: #dc3545;
+      border-color: #f5c6cb;
+    }
+    .layer-btn.delete-btn:hover {
+      background: #dc3545;
+      color: white;
+    }
     .empty-layers { text-align: center; color: #adb5bd; font-size: 11px; padding: 30px 0; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -399,7 +436,6 @@
       patternCanvas.height = 40;
       const ctx = patternCanvas.getContext('2d');
       
-      // 픽셀 오차 줄이기 위해 정수형 Rect 사용
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 40, 40);
       ctx.fillStyle = '#e2e5e9';
@@ -413,14 +449,13 @@
       width: CANVAS_VIEW_SIZE,
       height: CANVAS_VIEW_SIZE,
       selection: true,
-      backgroundColor: null // 캔버스 자체 배경 투명
+      backgroundColor: null
     });
 
     const gridPattern = createGridPattern();
     let workAreaRect = null;
     let currentWorkBounds = { left: 0, top: 0, width: 0, height: 0, scale: 1 };
 
-    // 작업 영역 가이드 박스 생성 및 식별 속성 추가
     function updateWorkArea(ratioKey) {
       currentRatio = ratioKey;
       const targetRes = RESOLUTION_MAP[ratioKey];
@@ -437,7 +472,6 @@
         canvas.remove(workAreaRect);
       }
 
-      // 👈 [수정] 식별 태그(isWorkArea) 및 JSON 제외 속성(excludeFromExport) 추가
       workAreaRect = new fabric.Rect({
         left: left,
         top: top,
@@ -449,8 +483,8 @@
         selectable: false,
         evented: false,
         strokeDashArray: [6, 4],
-        isWorkArea: true,           // 👈 식별용 커스텀 속성
-        excludeFromExport: true     // 👈 [Fabric 핵심] JSON 내보내기 시 자동 제외!
+        isWorkArea: true,
+        excludeFromExport: true
       });
 
       canvas.add(workAreaRect);
@@ -460,7 +494,7 @@
 
     updateWorkArea('1:1');
 
-    // --- 줌(Zoom) 기능 구현 ---
+    // --- 줌(Zoom) 기능 ---
     const zoomRange = document.getElementById('zoomRange');
     const zoomValEl = document.getElementById('zoomVal');
     const zoomInBtn = document.getElementById('zoomInBtn');
@@ -469,21 +503,16 @@
 
     function setCanvasZoom(zoom, updateRangeInput = true) {
       currentZoom = Math.max(0.5, Math.min(3, zoom));
-      
       const center = { x: CANVAS_VIEW_SIZE / 2, y: CANVAS_VIEW_SIZE / 2 };
       canvas.zoomToPoint(center, currentZoom);
 
       const percent = Math.round(currentZoom * 100);
       zoomValEl.textContent = `${percent}%`;
-
-      if (updateRangeInput) {
-        zoomRange.value = percent;
-      }
+      if (updateRangeInput) zoomRange.value = percent;
     }
 
     zoomRange.addEventListener('input', function() {
-      const zoomValue = parseFloat(this.value) / 100;
-      setCanvasZoom(zoomValue, false);
+      setCanvasZoom(parseFloat(this.value) / 100, false);
     });
 
     zoomInBtn.addEventListener('click', () => setCanvasZoom(currentZoom + 0.1));
@@ -493,8 +522,7 @@
     canvas.on('mouse:wheel', function(opt) {
       if (opt.e.ctrlKey) {
         let delta = opt.e.deltaY;
-        let zoom = canvas.getZoom();
-        zoom *= 0.999 ** delta;
+        let zoom = canvas.getZoom() * (0.999 ** delta);
         if (zoom > 3) zoom = 3;
         if (zoom < 0.5) zoom = 0.5;
         
@@ -542,11 +570,8 @@
       });
     });
 
-    // =========================================================
-    // [현상 해결] 가이드 박스 제외하고 JSON Export
-    // =========================================================
+    // JSON Export
     exportJsonBtn.addEventListener('click', function() {
-      // 👈 필터링 로직 보완
       const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       const savedTemplates = {};
       
@@ -560,10 +585,7 @@
         return;
       }
 
-      // 👈 [Fabric 핵심] customProperties에 excludeFromExport 및 isWorkArea 속성을 추가 요청해야 JSON 변환 시 속성값이 유지/활용됨
       const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
-      
-      // JSON 객체 배열 내에서 혹시 남아있을 가이드 박스 이중 필터링
       if (canvasJson.objects) {
         canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
       }
@@ -589,9 +611,7 @@
       showAlert('💾 프로젝트 데이터가 JSON 파일로 추출되었습니다.');
     });
 
-    // =========================================================
-    // [현상 해결] 오염된 구 가이드 박스 제거하며 Import
-    // =========================================================
+    // JSON Import
     jsonLoader.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -621,16 +641,13 @@
               b.classList.toggle('active', b.getAttribute('data-ratio') === currentRatio);
             });
 
-            // 👈 loadFromJSON 콜백 내부 수정
             canvas.loadFromJSON(targetCanvasData.json, function() {
-              // 👈 [해결] 혹시 JSON 내부에 오염되어 들어온 구 가이드 박스 식별하여 제거
               const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
               oldWorkAreas.forEach(obj => canvas.remove(obj));
 
-              // 현재 상태에 맞는 새 가이드 박스 생성
               updateWorkArea(currentRatio);
               updateLayerPanel();
-              setCanvasZoom(1); // 줌 리셋
+              setCanvasZoom(1);
             });
           }
 
@@ -643,21 +660,15 @@
       jsonLoader.value = '';
     });
 
-    // =========================================================
-    // [현상 해결] 템플릿 저장 (excludeFromExport 활용)
-    // =========================================================
+    // 템플릿 저장 및 불러오기
     function saveTemplate(slotNumber) {
-      // 👈 필터링 보완
       const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       if (objects.length === 0) {
         showAlert('⚠️ 요소가 없는 빈 작업 공간은 저장할 수 없습니다.');
         return;
       }
 
-      // 👈 [Fabric 핵심] customProperties 전달
       const canvasJson = canvas.toJSON(['excludeFromExport', 'isWorkArea']);
-      
-      // JSON 객체 이중 필터링 (JSON 배열 내 객체 삭제)
       if (canvasJson.objects) {
         canvasJson.objects = canvasJson.objects.filter(obj => !obj.isWorkArea && !obj.excludeFromExport);
       }
@@ -679,13 +690,12 @@
       });
 
       canvas.loadFromJSON(templateData.json, function() {
-        // 👈 [해결] 템플릿 복원 시 오염된 구 가이드 박스 제거
         const oldWorkAreas = canvas.getObjects().filter(obj => obj.isWorkArea || obj.excludeFromExport);
         oldWorkAreas.forEach(obj => canvas.remove(obj));
 
         updateWorkArea(currentRatio);
         updateLayerPanel();
-        setCanvasZoom(1); // 줌 리셋
+        setCanvasZoom(1);
         showAlert(`🔄 Quick 슬롯 ${slotNumber}번을 불러왔습니다.`);
       });
     }
@@ -720,9 +730,32 @@
 
     [1, 2, 3].forEach(slot => updateTemplateUI(slot));
 
-    // 레이어 관리 및 디자인 요소 제어
+    // =========================================================
+    // 🌟 [핵심] 레이어 순서 조절 및 패널 업데이트 구현
+    // =========================================================
+    let draggedItemIndex = null;
+
+    function moveLayer(fromIndex, toIndex) {
+      const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
+      if (toIndex < 0 || toIndex >= objects.length) return;
+
+      const targetObj = objects[fromIndex];
+      
+      // Fabric 캔버스 전체 객체 상에서의 인덱스로 환산 (workAreaRect가 맨 밑(0번)에 있음)
+      // objects 배열의 i번째 객체는 workAreaRect 다음부터 시작하므로 Fabric 인덱스는 i + 1
+      const fabricNewIndex = toIndex + 1;
+
+      targetObj.moveTo(fabricNewIndex);
+      
+      // workAreaRect가 맨 밑에 위치하도록 보장
+      if (workAreaRect) workAreaRect.sendToBack();
+
+      canvas.renderAll();
+      updateLayerPanel();
+    }
+
     function updateLayerPanel() {
-      // 가이드 박스는 레이어 목록에서 제외
+      // 순수 디자인 객체만 추출
       const objects = canvas.getObjects().filter(o => !o.isWorkArea && o !== workAreaRect);
       layerListEl.innerHTML = '';
       layerCountEl.textContent = `${objects.length}개`;
@@ -734,10 +767,15 @@
 
       const activeObjects = canvas.getActiveObjects();
 
+      // UI에는 화면 상단의 레이어(z-index 높은 객체)가 목록 맨 위에 오도록 역순(Top-to-Bottom)으로 출력
       for (let i = objects.length - 1; i >= 0; i--) {
         const obj = objects[i];
+        const displayIndex = objects.length - 1 - i; // UI 리스트에서의 상단 기준 인덱스
+
         const li = document.createElement('li');
         li.className = 'layer-item';
+        li.draggable = true;
+        li.dataset.index = i; // 실제 objects 배열의 인덱스 기록
 
         if (activeObjects.includes(obj)) li.classList.add('active');
 
@@ -749,26 +787,70 @@
             <span>${icon}</span>
             <span>${title}</span>
           </div>
-          <button class="layer-delete-btn">✕</button>
+          <div class="layer-actions">
+            <button class="layer-btn move-up" title="위로 이동" ${i === objects.length - 1 ? 'disabled' : ''}>▲</button>
+            <button class="layer-btn move-down" title="아래로 이동" ${i === 0 ? 'disabled' : ''}>▼</button>
+            <button class="layer-btn delete-btn" title="삭제">✕</button>
+          </div>
         `;
 
+        // 1. 레이어 클릭 시 객체 선택
         li.addEventListener('click', (e) => {
-          if (e.target.classList.contains('layer-delete-btn')) return;
+          if (e.target.closest('.layer-actions')) return;
           canvas.setActiveObject(obj);
           canvas.renderAll();
         });
 
-        li.querySelector('.layer-delete-btn').addEventListener('click', (e) => {
+        // 2. 버튼 조작 (위/아래/삭제)
+        const upBtn = li.querySelector('.move-up');
+        const downBtn = li.querySelector('.move-down');
+        const delBtn = li.querySelector('.delete-btn');
+
+        upBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveLayer(i, i + 1); // objects 배열 상에서 한 단계 위(z-index 증가)
+        });
+
+        downBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveLayer(i, i - 1); // objects 배열 상에서 한 단계 아래(z-index 감소)
+        });
+
+        delBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           canvas.remove(obj);
           canvas.discardActiveObject();
           canvas.requestRenderAll();
         });
 
+        // 3. 드래그 앤 드롭 이벤트 (HTML5 Drag & Drop)
+        li.addEventListener('dragstart', (e) => {
+          draggedItemIndex = i;
+          li.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+
+        li.addEventListener('dragend', () => {
+          li.classList.remove('dragging');
+          draggedItemIndex = null;
+        });
+
+        li.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+
+        li.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (draggedItemIndex === null || draggedItemIndex === i) return;
+          moveLayer(draggedItemIndex, i);
+        });
+
         layerListEl.appendChild(li);
       }
     }
 
+    // Canvas 이벤트에 레이어 패널 동기화 연결
     canvas.on('object:added', updateLayerPanel);
     canvas.on('object:removed', updateLayerPanel);
     canvas.on('object:modified', updateLayerPanel);
@@ -862,14 +944,13 @@
       deleteBtn.disabled = !activeObjects || activeObjects.length === 0;
     }
 
-    // 다운로드
+    // 이미지 내려받기
     downloadBtn.addEventListener('click', function() {
       const prevZoom = canvas.getZoom();
-      setCanvasZoom(1); // 줌 리셋
+      setCanvasZoom(1);
 
       canvas.discardActiveObject();
       
-      // 내보내기 전 작업 가이드 일시 숨김 (stroke만 숨김, exclude 속성에 의해 fill 패턴도 다운로드 Canvas엔 안그려짐)
       workAreaRect.set({ strokeWidth: 0 });
       canvas.renderAll();
 
@@ -885,7 +966,7 @@
       });
 
       workAreaRect.set({ strokeWidth: 2 });
-      setCanvasZoom(prevZoom); // 줌 상태 복원
+      setCanvasZoom(prevZoom);
       canvas.renderAll();
 
       const link = document.createElement('a');
