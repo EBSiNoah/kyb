@@ -115,7 +115,7 @@
             max-width: 960px;
             width: 100%;
             margin-bottom: 60px;
-            scroll-margin-top: 100px; /* 홈 위치 스크롤 마진 */
+            scroll-margin-top: 100px;
         }
 
         /* 좌측 컬럼 */
@@ -187,7 +187,7 @@
             align-items: center;
         }
 
-        /* 2. 연락처 카드 (기존 이력 카드 디자인 유지) */
+        /* 2. 연락처 카드 (이력 카드 디자인 유지) */
         .history-card {
             background: linear-gradient(135deg, #1b382b, #12261d);
             border-radius: 16px;
@@ -337,7 +337,7 @@
             padding: 40px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.05);
             border: 1px solid rgba(226, 232, 240, 0.8);
-            scroll-margin-top: 100px; /* 고정 네비게이션 바에 안 가려지도록 마진 설정 */
+            scroll-margin-top: 100px;
         }
 
         .content-section h2 {
@@ -404,6 +404,18 @@
             font-weight: 700;
             color: #1e293b;
             margin-bottom: 2px;
+        }
+
+        .cert-number {
+            font-size: 12px;
+            color: #2563eb;
+            font-weight: 600;
+            background: #eff6ff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 4px;
+            border: 1px solid rgba(147, 197, 253, 0.4);
         }
 
         .cert-info p {
@@ -694,11 +706,39 @@
                 1. Security & Certifications
             </h2>
             <p style="margin-bottom: 24px; color: #64748b;">
-                소프트웨어 개발 및 프로그래밍 역량 관련 자격증과 성적 증명서입니다.
+                소프트웨어 개발 및 정보보안, IT 관련 자격증과 성적 증명서입니다.
             </p>
 
             <div class="cert-grid">
-                <!-- 1. PCCE -->
+                <!-- 1. 정보보안기사 -->
+                <div class="cert-card">
+                    <div class="cert-main">
+                        <div class="cert-icon">
+                            <i class="fa-solid fa-user-shield" style="color: #10b981;"></i>
+                        </div>
+                        <div class="cert-info">
+                            <h4>정보보안기사</h4>
+                            <div class="cert-number">No. [260A1100181]</div>
+                            <p>Korea Internet & Security Agency (KISA)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. SQLD -->
+                <div class="cert-card">
+                    <div class="cert-main">
+                        <div class="cert-icon">
+                            <i class="fa-solid fa-database" style="color: #6366f1;"></i>
+                        </div>
+                        <div class="cert-info">
+                            <h4>SQLD (SQL 개발자)</h4>
+                            <div class="cert-number">No. [SQLD-043007564]</div>
+                            <p>SQL Developer - Korea Data Agency</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. PCCE -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -706,6 +746,7 @@
                         </div>
                         <div class="cert-info">
                             <h4>PCCE</h4>
+                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Programmers Certified Coding Essential</p>
                         </div>
                     </div>
@@ -719,7 +760,7 @@
                     </div>
                 </div>
 
-                <!-- 2. PCCP -->
+                <!-- 4. PCCP -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -727,6 +768,7 @@
                         </div>
                         <div class="cert-info">
                             <h4>PCCP</h4>
+                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Programmers Certified Coding Professional</p>
                         </div>
                     </div>
@@ -740,7 +782,7 @@
                     </div>
                 </div>
 
-                <!-- 3. TOPCIT -->
+                <!-- 5. TOPCIT -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -748,6 +790,7 @@
                         </div>
                         <div class="cert-info">
                             <h4>TOPCIT</h4>
+                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Test of Practical Competency in IT</p>
                         </div>
                     </div>
