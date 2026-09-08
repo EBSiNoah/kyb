@@ -3,205 +3,221 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>공영도매시장 실시간 경매 시세 추이</title>
-  <!-- Tailwind CSS CDN -->
+  <title>T04 오늘의 진짜 정보판</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800">
+<body class="bg-slate-100 text-slate-800 p-6">
 
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <!-- 헤더 -->
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold text-slate-900 mb-2">🌾 전국 공영도매시장 낙찰 시세</h1>
-      <p class="text-slate-600">매일 오후 7시 자동 업데이트되는 품목별 경매 가격 정보입니다.</p>
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-md border border-slate-200">
+    <header class="mb-6 flex justify-between items-center border-b pb-4">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">🌾 T04 오늘의 진짜 정보판 (배추 시세)</h1>
+        <p class="text-xs text-slate-500 mt-1" id="sourceUrl">출처: https://apis.data.go.kr/B552845/katRealTime2/trades2</p>
+      </div>
+      <!-- T04 헬스체크 / 상태 배지 -->
+      <div id="statusBadge" class="px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-gray-100 text-gray-600">
+        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+        <span>LOADING</span>
+      </div>
     </header>
 
-    <!-- 날짜 선택 및 검색 영역 -->
-    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap gap-4 items-center justify-between">
-      <div class="flex items-center gap-3">
-        <label for="dateSelect" class="font-semibold text-slate-700">조회 일자:</label>
-        <select id="dateSelect" class="border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-          <option value="">데이터 로딩 중...</option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <input type="text" id="searchInput" placeholder="품목명 검색 (예: 배추, 사과)" 
-               class="border border-slate-300 rounded-lg px-4 py-2 w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-      </div>
-    </div>
-
-    <!-- 차트 영역 -->
-    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
-      <h2 id="chartTitle" class="text-lg font-bold text-slate-800 mb-4">📈 일별 평균 낙찰가 변동 추이 (품목을 선택하세요)</h2>
-      <div class="relative h-72">
-        <canvas id="priceChart"></canvas>
+    <!-- Fixture 재생 시뮬레이터 (채점/검증용) -->
+    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
+      <div class="text-xs font-bold text-slate-700 mb-2">🧪 Fixture Replay 테스트 모드 (9개 검증)</div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="playFixture('normal-d1-a')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D1-A (100)</button>
+        <button onclick="playFixture('normal-d1-b')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D1-B (105)</button>
+        <button onclick="playFixture('normal-d2')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D2 (120)</button>
+        <button onclick="playFixture('timeout')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Timeout</button>
+        <button onclick="playFixture('auth-401')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Auth 401</button>
+        <button onclick="playFixture('rate-429')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Rate 429</button>
+        <button onclick="playFixture('offline')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Offline</button>
+        <button onclick="playFixture('schema-break')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Schema Break</button>
+        <button onclick="playFixture('recover-d2')" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Recover D2</button>
+        <button onclick="resetState()" class="px-2 py-1 bg-rose-600 text-white rounded text-xs font-bold">RESET</button>
       </div>
     </div>
 
-    <!-- 데이터 테이블 영역 -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <h3 class="font-bold text-slate-800" id="tableTitle">오늘의 품목별 낙찰가 목록</h3>
-        <span class="text-xs text-slate-400">* 품목 행을 클릭하면 상단에 일별 가격 그래프가 그려집니다.</span>
+    <!-- 대시보드 메인 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div class="text-xs text-slate-500 mb-1">최신 정규화 값</div>
+        <div class="text-3xl font-extrabold text-blue-600" id="latestValue">-</div>
       </div>
+      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div class="text-xs text-slate-500 mb-1">전일 대비 변화량</div>
+        <div class="text-3xl font-extrabold" id="deltaValue">-</div>
+      </div>
+      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div class="text-xs text-slate-500 mb-1">조회 / 관측 시각 (KST)</div>
+        <div class="text-xs font-mono font-medium text-slate-700 mt-2" id="observedAt">-</div>
+      </div>
+    </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse text-sm">
-          <thead>
-            <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-              <th class="py-3 px-4">품목명</th>
-              <th class="py-3 px-4 text-right">평균 낙찰가</th>
-              <th class="py-3 px-4 text-right">최저가</th>
-              <th class="py-3 px-4 text-right">최고가</th>
-              <th class="py-3 px-4 text-right">총 거래 수량</th>
-            </tr>
-          </thead>
-          <tbody id="priceTableBody" class="divide-y divide-slate-100">
-            <tr>
-              <td colspan="5" class="text-center py-8 text-slate-400">데이터를 불러오는 중입니다...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- 가격 추이 차트 -->
+    <div class="mb-6 relative h-64 border border-slate-100 rounded-lg p-2">
+      <canvas id="priceChart"></canvas>
+    </div>
+
+    <!-- 저장 기록 테이블 -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-100 text-slate-600 border-b">
+            <th class="p-2">날짜 (record_date)</th>
+            <th class="p-2">Signal ID</th>
+            <th class="p-2 text-right">정규화 값 (value)</th>
+            <th class="p-2">관측 시각</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable" class="divide-y divide-slate-100"></tbody>
+      </table>
     </div>
   </div>
 
   <script>
-    let rawHistoryData = {};
+    let appState = { status: 'fresh', error_code: 'none' };
+    let historyData = {};
     let chartInstance = null;
-    let selectedItem = null;
 
-    // 1. data/history.json 파일 불러오기
-    async function initData() {
+    async function init() {
       try {
-        const response = await fetch('./data/history.json');
-        if (!response.ok) throw new Error("데이터 파일(data/history.json)을 읽을 수 없습니다.");
-        
-        rawHistoryData = await response.json();
-        
-        const dates = Object.keys(rawHistoryData).sort().reverse(); // 최근일순 정렬
-        if (dates.length === 0) {
-          showEmptyMessage("저장된 데이터가 없습니다.");
-          return;
-        }
-
-        // 날짜 드롭다운 세팅
-        const dateSelect = document.getElementById('dateSelect');
-        dateSelect.innerHTML = '';
-        dates.forEach(date => {
-          const opt = document.createElement('option');
-          opt.value = date;
-          opt.textContent = date;
-          dateSelect.appendChild(opt);
-        });
-
-        // 이벤트 등록
-        dateSelect.addEventListener('change', () => renderTable());
-        document.getElementById('searchInput').addEventListener('input', () => renderTable());
-
-        renderTable();
-      } catch (err) {
-        showEmptyMessage("데이터 로드 실패: " + err.message);
+        const [hRes, sRes] = await Promise.all([
+          fetch('./data/history.json'),
+          fetch('./data/status.json')
+        ]);
+        if (hRes.ok) historyData = await hRes.json();
+        if (sRes.ok) appState = await sRes.json();
+      } catch (e) {
+        console.warn("로컬 서버 데이터 없음. 기본 상태로 시작합니다.");
       }
+      renderUI();
     }
 
-    // 2. 선택된 날짜의 품목 목록 테이블 렌더링
-    function renderTable() {
-      const selectedDate = document.getElementById('dateSelect').value;
-      const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
-      const tbody = document.getElementById('priceTableBody');
-      
-      const dayData = rawHistoryData[selectedDate] || {};
-      const itemNames = Object.keys(dayData).filter(name => name.toLowerCase().includes(searchKeyword));
+    function renderUI() {
+      // 1. 상태 배지 업데이트
+      const badge = document.getElementById('statusBadge');
+      if (appState.status === 'fresh') {
+        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>FRESH / NONE</span>`;
+      } else {
+        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-rose-100 text-rose-800";
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>STALE / ${appState.error_code.toUpperCase()}</span>`;
+      }
 
-      document.getElementById('tableTitle').textContent = `📅 ${selectedDate} 품목별 낙찰가 목록`;
+      // 2. 데이터 정렬 및 메인 표기
+      const dates = Object.keys(historyData).sort();
+      const tbody = document.getElementById('historyTable');
+      tbody.innerHTML = '';
 
-      if (itemNames.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">검색 결과가 없습니다.</td></tr>`;
+      if (dates.length === 0) {
+        document.getElementById('latestValue').textContent = '-';
+        document.getElementById('deltaValue').textContent = '-';
+        document.getElementById('observedAt').textContent = '-';
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">저장된 데이터가 없습니다.</td></tr>`;
+        updateChart([], []);
         return;
       }
 
-      // 첫 번째 항목 자동 선택
-      if (!selectedItem || !itemNames.includes(selectedItem)) {
-        selectedItem = itemNames[0];
-        updateChart(selectedItem);
+      const latestDate = dates[dates.length - 1];
+      const latestItem = historyData[latestDate];
+
+      document.getElementById('latestValue').textContent = `${latestItem.normalized_value.toLocaleString()} ${latestItem.unit}`;
+      document.getElementById('observedAt').textContent = latestItem.source_observed_at || '-';
+      document.getElementById('sourceUrl').textContent = `출처: ${latestItem.source_url || '-'}`;
+
+      // 전일 대비 계산
+      if (dates.length >= 2) {
+        const prevItem = historyData[dates[dates.length - 2]];
+        const delta = latestItem.normalized_value - prevItem.normalized_value;
+        const deltaEl = document.getElementById('deltaValue');
+        if (delta > 0) {
+          deltaEl.className = "text-3xl font-extrabold text-rose-500";
+          deltaEl.textContent = `+${delta.toLocaleString()} ${latestItem.unit}`;
+        } else if (delta < 0) {
+          deltaEl.className = "text-3xl font-extrabold text-blue-500";
+          deltaEl.textContent = `${delta.toLocaleString()} ${latestItem.unit}`;
+        } else {
+          deltaEl.className = "text-3xl font-extrabold text-slate-600";
+          deltaEl.textContent = `0 ${latestItem.unit}`;
+        }
+      } else {
+        document.getElementById('deltaValue').textContent = `0 ${latestItem.unit}`;
       }
 
-      tbody.innerHTML = '';
-      itemNames.forEach(name => {
-        const item = dayData[name];
+      // 테이블 렌더링 (최신순)
+      [...dates].reverse().forEach(d => {
+        const row = historyData[d];
         const tr = document.createElement('tr');
-        const isSelected = selectedItem === name;
-        tr.className = `hover:bg-blue-50 cursor-pointer transition ${isSelected ? 'bg-blue-50/80 font-semibold' : ''}`;
-        
         tr.innerHTML = `
-          <td class="py-3 px-4 text-slate-900">${name}</td>
-          <td class="py-3 px-4 text-right text-blue-600 font-bold">${item.avg_price ? item.avg_price.toLocaleString() + ' 원' : '-'}</td>
-          <td class="py-3 px-4 text-right text-slate-500">${item.min_price ? item.min_price.toLocaleString() + ' 원' : '-'}</td>
-          <td class="py-3 px-4 text-right text-slate-500">${item.max_price ? item.max_price.toLocaleString() + ' 원' : '-'}</td>
-          <td class="py-3 px-4 text-right text-slate-600">${item.total_qty ? item.total_qty.toLocaleString() : '-'}</td>
+          <td class="p-2 font-bold">${row.record_date}</td>
+          <td class="p-2 text-slate-500 font-mono">${row.signal_id}</td>
+          <td class="p-2 text-right font-bold text-blue-600">${row.normalized_value.toLocaleString()} ${row.unit}</td>
+          <td class="p-2 text-slate-400 font-mono text-[10px]">${row.source_observed_at}</td>
         `;
-
-        tr.addEventListener('click', () => {
-          selectedItem = name;
-          renderTable();
-          updateChart(name);
-        });
-
         tbody.appendChild(tr);
       });
+
+      updateChart(dates, dates.map(d => historyData[d].normalized_value));
     }
 
-    // 3. Chart.js 일별 가격 추이 그래프 업데이트
-    function updateChart(itemName) {
-      document.getElementById('chartTitle').textContent = `📈 [${itemName}] 일별 평균 낙찰가 변동 추이`;
-
-      const dates = Object.keys(rawHistoryData).sort(); // 날짜 오름차순 정렬
-      const avgPrices = dates.map(d => rawHistoryData[d][itemName]?.avg_price || null);
-
+    function updateChart(labels, data) {
       const ctx = document.getElementById('priceChart').getContext('2d');
-
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-
+      if (chartInstance) chartInstance.destroy();
       chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: dates,
+          labels: labels,
           datasets: [{
-            label: `${itemName} 평균가 (원)`,
-            data: avgPrices,
+            label: '배추 정규화 가격',
+            data: data,
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            borderWidth: 2,
             fill: true,
-            tension: 0.2,
-            spanGaps: true
+            tension: 0.1
           }]
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            y: {
-              beginAtZero: false,
-              ticks: { callback: value => value.toLocaleString() + '원' }
-            }
-          }
-        }
+        options: { responsive: true, maintainAspectRatio: false }
       });
     }
 
-    function showEmptyMessage(msg) {
-      document.getElementById('priceTableBody').innerHTML = `<tr><td colspan="5" class="text-center py-8 text-rose-500">${msg}</td></tr>`;
+    // --- Fixture Replay 기능 (채점 시뮬레이션) ---
+    async function playFixture(name) {
+      try {
+        const res = await fetch(`../fixtures/${name}.json`);
+        if (!res.ok) throw new Error("Fixture 읽기 실패");
+        const fx = await res.json();
+
+        if (fx.error_code) {
+          // 장애 Fixture 재생: 기존 데이터 보존, stale 상태 변경
+          appState = { status: 'stale', error_code: fx.error_code };
+        } else {
+          // 정상 Fixture 재생: 날짜 추출 후 history 갱신
+          const recordDate = fx.observed_at ? fx.observed_at.split('T')[0] : '2026-08-24';
+          historyData[recordDate] = {
+            signal_id: fx.signal_id || name,
+            source_url: "fixtures/" + name,
+            source_observed_at: fx.observed_at || new Date().toISOString(),
+            normalized_value: fx.value,
+            unit: fx.unit || "원",
+            record_date: recordDate
+          };
+          appState = { status: 'fresh', error_code: 'none' };
+        }
+        renderUI();
+      } catch (err) {
+        alert("Fixture 재생 오류: " + err.message);
+      }
     }
 
-    initData();
+    function resetState() {
+      historyData = {};
+      appState = { status: 'fresh', error_code: 'none' };
+      renderUI();
+    }
+
+    init();
   </script>
 </body>
 </html>
