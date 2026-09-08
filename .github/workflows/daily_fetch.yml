@@ -1,40 +1,35 @@
-name: Daily Price Data Collector (Rice)
+name: T04 Daily Data Fetcher
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # 매일 한국 시간 오후 7시(UTC 10:00) 실행
-  workflow_dispatch:      # 수동 실행 버튼 활성화
+    - cron: '0 10 * * *'  # KST 19:00 실행 (UTC 10:00)
+  workflow_dispatch:
 
 jobs:
-  collect-and-commit:
+  run-fetch:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
+        run: pip install requests
 
-      # rice/ 디렉토리 위치에서 파이썬 스크립트 실행
-      - name: Run data collection script
+      - name: Run T04 Collector
         working-directory: ./rice
         env:
           ricekey: ${{ secrets.ricekey }}
         run: python scripts/collect_data.py
 
-      # rice/data/history.json 파일 변경사항 커밋
-      - name: Commit and push updated data
+      - name: Commit and Push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add rice/data/history.json
-          git commit -m "chore: update daily price data [skip ci]" || exit 0
+          git add rice/data/
+          git commit -m "chore: update T04 readings and status [skip ci]" || exit 0
           git push
