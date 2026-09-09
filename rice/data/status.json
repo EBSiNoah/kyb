@@ -1,1 +1,5 @@
-
+{
+  "status": "stale",
+  "error_code": "offline",
+  "last_observed_at": null
+}
