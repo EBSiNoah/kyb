@@ -13,33 +13,22 @@
     <header class="mb-6 flex justify-between items-center border-b pb-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">🌾 T04 오늘의 진짜 정보판 (배추 시세)</h1>
-        <p class="text-xs text-slate-500 mt-1" id="sourceUrl">출처: https://apis.data.go.kr/B552845/katRealTime2/trades2</p>
+        <p class="text-xs text-slate-500 mt-1" id="sourceUrl">출처: 로딩 중...</p>
       </div>
-      <!-- T04 헬스체크 / 상태 배지 -->
       <div id="statusBadge" class="px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-gray-100 text-gray-600">
         <span class="w-2 h-2 rounded-full bg-gray-400"></span>
         <span>LOADING</span>
       </div>
     </header>
 
-    <!-- Fixture 재생 시뮬레이터 (채점/검증용) -->
-    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6">
-      <div class="text-xs font-bold text-slate-700 mb-2">🧪 Fixture Replay 테스트 모드 (9개 검증)</div>
-      <div class="flex flex-wrap gap-2">
-        <button onclick="playFixture('normal-d1-a')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D1-A (100)</button>
-        <button onclick="playFixture('normal-d1-b')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D1-B (105)</button>
-        <button onclick="playFixture('normal-d2')" class="px-2 py-1 bg-blue-600 text-white rounded text-xs">D2 (120)</button>
-        <button onclick="playFixture('timeout')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Timeout</button>
-        <button onclick="playFixture('auth-401')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Auth 401</button>
-        <button onclick="playFixture('rate-429')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Rate 429</button>
-        <button onclick="playFixture('offline')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Offline</button>
-        <button onclick="playFixture('schema-break')" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">Schema Break</button>
-        <button onclick="playFixture('recover-d2')" class="px-2 py-1 bg-emerald-600 text-white rounded text-xs">Recover D2</button>
-        <button onclick="resetState()" class="px-2 py-1 bg-rose-600 text-white rounded text-xs font-bold">RESET</button>
-      </div>
+    <!-- 외부 JSON 파일 첨부/드롭 영역 (웹 검증용) -->
+    <div id="dropZone" class="mb-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-4 text-center bg-slate-50 transition-colors cursor-pointer">
+      <input type="file" id="fileInput" accept=".json" class="hidden">
+      <p class="text-xs text-slate-600 font-medium">📥 테스트할 외부 JSON 파일(Fixture)을 이곳에 드래그하거나 클릭하여 업로드하세요</p>
+      <p class="text-[10px] text-slate-400 mt-1">정상 JSON 및 장애 JSON(timeout, auth-401 등)을 즉시 시뮬레이션합니다.</p>
     </div>
 
-    <!-- 대시보드 메인 카드 -->
+    <!-- 대시보드 카드 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
         <div class="text-xs text-slate-500 mb-1">최신 정규화 값</div>
@@ -50,17 +39,17 @@
         <div class="text-3xl font-extrabold" id="deltaValue">-</div>
       </div>
       <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">조회 / 관측 시각 (KST)</div>
+        <div class="text-xs text-slate-500 mb-1">관측 시각 (KST)</div>
         <div class="text-xs font-mono font-medium text-slate-700 mt-2" id="observedAt">-</div>
       </div>
     </div>
 
-    <!-- 가격 추이 차트 -->
+    <!-- 차트 -->
     <div class="mb-6 relative h-64 border border-slate-100 rounded-lg p-2">
       <canvas id="priceChart"></canvas>
     </div>
 
-    <!-- 저장 기록 테이블 -->
+    <!-- 기록 테이블 -->
     <div class="overflow-x-auto">
       <table class="w-full text-left text-xs border-collapse">
         <thead>
@@ -84,19 +73,18 @@
     async function init() {
       try {
         const [hRes, sRes] = await Promise.all([
-          fetch('./data/history.json'),
-          fetch('./data/status.json')
+          fetch('./data/history.json?t=' + Date.now()),
+          fetch('./data/status.json?t=' + Date.now())
         ]);
         if (hRes.ok) historyData = await hRes.json();
         if (sRes.ok) appState = await sRes.json();
       } catch (e) {
-        console.warn("로컬 서버 데이터 없음. 기본 상태로 시작합니다.");
+        console.warn("로컬 서버 데이터 미발견. 기본 UI로 시작합니다.");
       }
       renderUI();
     }
 
     function renderUI() {
-      // 1. 상태 배지 업데이트
       const badge = document.getElementById('statusBadge');
       if (appState.status === 'fresh') {
         badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
@@ -106,7 +94,6 @@
         badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>STALE / ${appState.error_code.toUpperCase()}</span>`;
       }
 
-      // 2. 데이터 정렬 및 메인 표기
       const dates = Object.keys(historyData).sort();
       const tbody = document.getElementById('historyTable');
       tbody.innerHTML = '';
@@ -127,7 +114,6 @@
       document.getElementById('observedAt').textContent = latestItem.source_observed_at || '-';
       document.getElementById('sourceUrl').textContent = `출처: ${latestItem.source_url || '-'}`;
 
-      // 전일 대비 계산
       if (dates.length >= 2) {
         const prevItem = historyData[dates[dates.length - 2]];
         const delta = latestItem.normalized_value - prevItem.normalized_value;
@@ -146,7 +132,6 @@
         document.getElementById('deltaValue').textContent = `0 ${latestItem.unit}`;
       }
 
-      // 테이블 렌더링 (최신순)
       [...dates].reverse().forEach(d => {
         const row = historyData[d];
         const tr = document.createElement('tr');
@@ -182,39 +167,47 @@
       });
     }
 
-    // --- Fixture Replay 기능 (채점 시뮬레이션) ---
-    async function playFixture(name) {
-      try {
-        const res = await fetch(`../fixtures/${name}.json`);
-        if (!res.ok) throw new Error("Fixture 읽기 실패");
-        const fx = await res.json();
+    // --- 웹 첨부파일 업로드 시뮬레이션 핸들러 ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
 
-        if (fx.error_code) {
-          // 장애 Fixture 재생: 기존 데이터 보존, stale 상태 변경
-          appState = { status: 'stale', error_code: fx.error_code };
-        } else {
-          // 정상 Fixture 재생: 날짜 추출 후 history 갱신
-          const recordDate = fx.observed_at ? fx.observed_at.split('T')[0] : '2026-08-24';
-          historyData[recordDate] = {
-            signal_id: fx.signal_id || name,
-            source_url: "fixtures/" + name,
-            source_observed_at: fx.observed_at || new Date().toISOString(),
-            normalized_value: fx.value,
-            unit: fx.unit || "원",
-            record_date: recordDate
-          };
-          appState = { status: 'fresh', error_code: 'none' };
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-blue-500'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-blue-500');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const json = JSON.parse(e.target.result);
+          if (json.error_code && json.error_code !== 'none') {
+            appState = { status: 'stale', error_code: json.error_code };
+          } else {
+            const date = json.observed_at ? json.observed_at.split('T')[0] : '2026-09-09';
+            historyData[date] = {
+              signal_id: json.signal_id || 'UPLOADED-FILE',
+              source_url: file.name,
+              source_observed_at: json.observed_at || new Date().toISOString(),
+              normalized_value: json.value !== undefined ? json.value : json.normalized_value,
+              unit: json.unit || '원',
+              record_date: date
+            };
+            appState = { status: 'fresh', error_code: 'none' };
+          }
+          renderUI();
+        } catch (err) {
+          alert('JSON 파일 해석 실패');
         }
-        renderUI();
-      } catch (err) {
-        alert("Fixture 재생 오류: " + err.message);
-      }
-    }
-
-    function resetState() {
-      historyData = {};
-      appState = { status: 'fresh', error_code: 'none' };
-      renderUI();
+      };
+      reader.readAsText(file);
     }
 
     init();
