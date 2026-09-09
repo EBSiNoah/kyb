@@ -7,7 +7,7 @@ import requests
 SERVICE_KEY = os.environ.get("ricekey")
 KST = zoneinfo.ZoneInfo("Asia/Seoul")
 
-DATA_DIR = "data"
+DATA_DIR = os.path.join(os.path.dirname(__file__), "../data")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
 STATUS_FILE = os.path.join(DATA_DIR, "status.json")
 
@@ -40,14 +40,14 @@ def update_status(status, error_code, last_observed_at=None):
     save_json(STATUS_FILE, current_status)
 
 
-def fetch_live_data():
+def main():
     if not SERVICE_KEY:
         update_status("stale", "auth_error")
-        return None, "auth_error"
+        print("[오류] API 서비스 키(ricekey)가 설정되지 않았습니다.")
+        return
 
     now_kst = datetime.now(KST)
     today_str = now_kst.strftime("%Y-%m-%d")
-
     url = "https://apis.data.go.kr/B552845/katRealTime2/trades2"
     params = {
         "serviceKey": SERVICE_KEY,
@@ -58,12 +58,16 @@ def fetch_live_data():
 
     try:
         res = requests.get(url, params=params, timeout=10)
+
         if res.status_code == 401:
-            return None, "auth_error"
+            update_status("stale", "auth_error")
+            return
         elif res.status_code == 429:
-            return None, "rate_limit"
+            update_status("stale", "rate_limit")
+            return
         elif res.status_code != 200:
-            return None, "offline"
+            update_status("stale", "offline")
+            return
 
         data = res.json()
         items = (
@@ -75,56 +79,39 @@ def fetch_live_data():
         if isinstance(items, dict):
             items = [items]
 
-        # '배추' 단일 품목 추출 및 정규화
-        prices = []
-        for it in items:
-            if it.get("corp_gds_item_nm") == "배추" and it.get("scsbd_prc"):
-                try:
-                    prices.append(float(it["scsbd_prc"]))
-                except ValueError:
-                    pass
+        prices = [
+            float(it["scsbd_prc"])
+            for it in items
+            if it.get("corp_gds_item_nm") == "배추" and it.get("scsbd_prc")
+        ]
 
         if not prices:
-            return None, "schema_break"
+            update_status("stale", "schema_break")
+            return
 
         avg_price = round(sum(prices) / len(prices))
-        normalized_reading = {
+        obs_time = now_kst.isoformat()
+
+        # history.json 원자적 갱신
+        history = load_json(HISTORY_FILE, {})
+        history[today_str] = {
             "signal_id": "T04-LIVE-CABBAGE",
             "source_url": url,
-            "source_observed_at": now_kst.isoformat(),
+            "source_observed_at": obs_time,
             "normalized_value": avg_price,
             "unit": "원",
             "record_date": today_str,
         }
-        return normalized_reading, None
+        save_json(HISTORY_FILE, history)
+        update_status("fresh", "none", obs_time)
+        print(f"[성공] {today_str} 배추 평균 시세: {avg_price}원")
 
     except requests.exceptions.Timeout:
-        return None, "timeout"
+        update_status("stale", "timeout")
     except requests.exceptions.RequestException:
-        return None, "offline"
+        update_status("stale", "offline")
     except Exception:
-        return None, "schema_break"
-
-
-def main():
-    reading, error = fetch_live_data()
-
-    history = load_json(HISTORY_FILE, {})
-
-    if error:
-        # 장애 시 기존 저장값 유지, status만 stale로 변경
-        update_status("stale", error)
-        print(f"[실패] 외부 데이터 수집 실패: {error}. 기존 데이터 보존됨.")
-    else:
-        # 동일 record_date 원자적 갱신 / 신규 날짜 생성
-        record_date = reading["record_date"]
-        history[record_date] = reading
-        save_json(HISTORY_FILE, history)
-
-        update_status("fresh", "none", reading["source_observed_at"])
-        print(
-            f"[성공] {record_date} 배추 시세 정규화 저장 완료: {reading['normalized_value']}원"
-        )
+        update_status("stale", "schema_break")
 
 
 if __name__ == "__main__":
