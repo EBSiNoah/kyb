@@ -21,14 +21,14 @@
       </div>
     </header>
 
-    <!-- 외부 JSON 파일 첨부/드롭 영역 (웹 검증용) -->
+    <!-- 외부 JSON (Fixtures) 파일 업로드/드롭 영역 -->
     <div id="dropZone" class="mb-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-4 text-center bg-slate-50 transition-colors cursor-pointer">
       <input type="file" id="fileInput" accept=".json" class="hidden">
-      <p class="text-xs text-slate-600 font-medium">📥 테스트할 외부 JSON 파일(Fixture)을 이곳에 드래그하거나 클릭하여 업로드하세요</p>
-      <p class="text-[10px] text-slate-400 mt-1">정상 JSON 및 장애 JSON(timeout, auth-401 등)을 즉시 시뮬레이션합니다.</p>
+      <p class="text-xs text-slate-600 font-medium">📥 외부 Fixture JSON 파일을 이곳에 드래그하거나 클릭하여 업로드하세요</p>
+      <p class="text-[10px] text-slate-400 mt-1">정상/장애 Fixture를 수신해 웹 화면의 반응형 상태를 즉시 테스트합니다.</p>
     </div>
 
-    <!-- 대시보드 카드 -->
+    <!-- 대시보드 지표 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
         <div class="text-xs text-slate-500 mb-1">최신 정규화 값</div>
@@ -49,7 +49,7 @@
       <canvas id="priceChart"></canvas>
     </div>
 
-    <!-- 기록 테이블 -->
+    <!-- 히스토리 테이블 -->
     <div class="overflow-x-auto">
       <table class="w-full text-left text-xs border-collapse">
         <thead>
@@ -79,7 +79,7 @@
         if (hRes.ok) historyData = await hRes.json();
         if (sRes.ok) appState = await sRes.json();
       } catch (e) {
-        console.warn("로컬 서버 데이터 미발견. 기본 UI로 시작합니다.");
+        console.warn("로컬 서버 데이터 미발견. 기본 UI 상태로 초기화합니다.");
       }
       renderUI();
     }
@@ -167,7 +167,7 @@
       });
     }
 
-    // --- 웹 첨부파일 업로드 시뮬레이션 핸들러 ---
+    // --- 유연한 Fixture 업로드 및 상태 시뮬레이션 핸들러 ---
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
 
@@ -187,24 +187,45 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
-          const json = JSON.parse(e.target.result);
-          if (json.error_code && json.error_code !== 'none') {
-            appState = { status: 'stale', error_code: json.error_code };
-          } else {
-            const date = json.observed_at ? json.observed_at.split('T')[0] : '2026-09-09';
-            historyData[date] = {
-              signal_id: json.signal_id || 'UPLOADED-FILE',
-              source_url: file.name,
-              source_observed_at: json.observed_at || new Date().toISOString(),
-              normalized_value: json.value !== undefined ? json.value : json.normalized_value,
-              unit: json.unit || '원',
-              record_date: date
-            };
-            appState = { status: 'fresh', error_code: 'none' };
+          const rawJson = JSON.parse(e.target.result);
+
+          // 1. 에러 코드 확인
+          const errorCode = rawJson.error_code || rawJson.error || rawJson.code;
+          if (errorCode && errorCode !== 'none' && errorCode !== 'success' && errorCode !== 200) {
+            appState = { status: 'stale', error_code: String(errorCode).toLowerCase() };
+            renderUI();
+            return;
           }
+
+          // 2. 데이터 페이로드 및 필드 탐색
+          const target = rawJson.payload || rawJson.data || rawJson.result || rawJson;
+          const rawValue = target.normalized_value ?? target.value ?? target.price ?? target.avg_price ?? target.scsbd_prc;
+
+          if (rawValue === undefined || rawValue === null || isNaN(Number(rawValue))) {
+            appState = { status: 'stale', error_code: 'schema_break' };
+            renderUI();
+            return;
+          }
+
+          const obsAt = target.observed_at || target.source_observed_at || target.timestamp || new Date().toISOString();
+          const recordDate = target.record_date || (obsAt.includes('T') ? obsAt.split('T')[0] : obsAt.substring(0, 10));
+
+          // 3. 인메모리 historyData 업데이트
+          historyData[recordDate] = {
+            signal_id: target.signal_id || 'FIXTURE-UPLOADED',
+            source_url: file.name,
+            source_observed_at: obsAt,
+            normalized_value: Number(rawValue),
+            unit: target.unit || '원',
+            record_date: recordDate
+          };
+
+          appState = { status: 'fresh', error_code: 'none' };
           renderUI();
+
         } catch (err) {
-          alert('JSON 파일 해석 실패');
+          appState = { status: 'stale', error_code: 'schema_break' };
+          renderUI();
         }
       };
       reader.readAsText(file);
