@@ -1,237 +1,627 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>T04 오늘의 진짜 정보판</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body class="bg-slate-100 text-slate-800 p-6">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>배추 시세 모니터링 대시보드</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #10b981;
+            --primary-hover: #059669;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+        }
 
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-md border border-slate-200">
-    <header class="mb-6 flex justify-between items-center border-b pb-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">🌾 T04 오늘의 진짜 정보판 (배추 시세)</h1>
-        <p class="text-xs text-slate-500 mt-1" id="sourceUrl">출처: 로딩 중...</p>
-      </div>
-      <div id="statusBadge" class="px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-gray-100 text-gray-600">
-        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-        <span>LOADING</span>
-      </div>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.fresh {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.stale {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .fresh .status-dot { background-color: var(--primary-color); }
+        .stale .status-dot { background-color: var(--danger-color); }
+
+        /* Control Panel / Filter Section */
+        .control-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        /* Date Range Picker */
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .input-group label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .input-group input[type="date"] {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-main);
+        }
+
+        .input-group input[type="date"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: auto;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+
+        /* Drag & Drop Dropzone */
+        .dropzone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .dropzone.dragover {
+            border-color: var(--primary-color);
+            background-color: #f0fdf4;
+        }
+
+        /* Dashboard Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .metric-sub {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .up { color: var(--danger-color); }
+        .down { color: #2563eb; }
+        .neutral { color: var(--text-muted); }
+
+        /* Chart & Table Container */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-bottom: 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .empty-msg {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 32px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>배추 시세 모니터링</h1>
+            <p id="last-observed" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                최신 관측 시각: -
+            </p>
+        </div>
+        <div id="status-badge" class="status-badge fresh">
+            <span class="status-dot"></span>
+            <span id="status-text">FRESH</span>
+        </div>
     </header>
 
-    <!-- 외부 JSON (Fixtures) 파일 업로드/드롭 영역 -->
-    <div id="dropZone" class="mb-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-4 text-center bg-slate-50 transition-colors cursor-pointer">
-      <input type="file" id="fileInput" accept=".json" class="hidden">
-      <p class="text-xs text-slate-600 font-medium">📥 외부 Fixture JSON 파일을 이곳에 드래그하거나 클릭하여 업로드하세요</p>
-      <p class="text-[10px] text-slate-400 mt-1">정상/장애 Fixture를 수신해 웹 화면의 반응형 상태를 즉시 테스트합니다.</p>
+    <!-- 필터 및 시뮬레이션 제어판 -->
+    <div class="control-panel">
+        <!-- 조회 기간 설정 (날짜 지정) -->
+        <div class="card">
+            <div class="card-title">📅 조회 기간 설정</div>
+            <div class="filter-group">
+                <div class="input-group">
+                    <label for="start-date">시작일</label>
+                    <input type="date" id="start-date">
+                </div>
+                <div class="input-group">
+                    <label for="end-date">종료일</label>
+                    <input type="date" id="end-date">
+                </div>
+                <button class="btn" onclick="applyDateFilter()">적용</button>
+                <button class="btn btn-secondary" onclick="resetDateFilter()">전체보기</button>
+            </div>
+        </div>
+
+        <!-- 테스트용 Fixture 드롭존 -->
+        <div class="card">
+            <div class="card-title">🧪 로컬 시뮬레이션 (Fixture JSON 드롭)</div>
+            <div id="dropzone" class="dropzone">
+                JSON 파일(정상/에러 Fixture)을 이곳에 드래그 앤 드롭하세요.
+                <input type="file" id="file-input" accept=".json" style="display: none;">
+            </div>
+        </div>
     </div>
 
-    <!-- 대시보드 지표 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">최신 정규화 값</div>
-        <div class="text-3xl font-extrabold text-blue-600" id="latestValue">-</div>
-      </div>
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">전일 대비 변화량</div>
-        <div class="text-3xl font-extrabold" id="deltaValue">-</div>
-      </div>
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">관측 시각 (KST)</div>
-        <div class="text-xs font-mono font-medium text-slate-700 mt-2" id="observedAt">-</div>
-      </div>
+    <!-- 핵심 지표 카드 -->
+    <div class="metrics-grid">
+        <div class="card">
+            <div class="card-title">조회 기간 최신 가격</div>
+            <div id="metric-current-price" class="metric-value">- 원</div>
+            <div id="metric-diff" class="metric-sub neutral">전일 대비 -</div>
+        </div>
+        <div class="card">
+            <div class="card-title">조회 기간 평균 가격</div>
+            <div id="metric-avg-price" class="metric-value">- 원</div>
+        </div>
+        <div class="card">
+            <div class="card-title">조회 기간 최고 / 최저</div>
+            <div id="metric-range" class="metric-value" style="font-size: 20px; margin-top: 10px;">- / -</div>
+        </div>
+        <div class="card">
+            <div class="card-title">에러 코드 (Error Status)</div>
+            <div id="metric-error-code" class="metric-value" style="font-size: 20px; color: var(--text-muted); margin-top: 10px;">none</div>
+        </div>
     </div>
 
-    <!-- 차트 -->
-    <div class="mb-6 relative h-64 border border-slate-100 rounded-lg p-2">
-      <canvas id="priceChart"></canvas>
+    <!-- 시세 추이 차트 -->
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-title">📈 배추 가격 추이 그래프</div>
+        <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+        </div>
     </div>
 
-    <!-- 히스토리 테이블 -->
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-xs border-collapse">
-        <thead>
-          <tr class="bg-slate-100 text-slate-600 border-b">
-            <th class="p-2">날짜 (record_date)</th>
-            <th class="p-2">Signal ID</th>
-            <th class="p-2 text-right">정규화 값 (value)</th>
-            <th class="p-2">관측 시각</th>
-          </tr>
-        </thead>
-        <tbody id="historyTable" class="divide-y divide-slate-100"></tbody>
-      </table>
+    <!-- 시세 데이터 테이블 -->
+    <div class="card">
+        <div class="card-title">📋 날짜별 시세 상세 내역</div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>기록 날짜 (Date)</th>
+                        <th>배추 가격 (Normalized Price)</th>
+                        <th>단위 (Unit)</th>
+                        <th>식별자 (Signal ID)</th>
+                    </tr>
+                </thead>
+                <tbody id="data-table-body">
+                    <tr>
+                        <td colspan="4" class="empty-msg">데이터를 불러오는 중입니다...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
-  </div>
 
-  <script>
-    let appState = { status: 'fresh', error_code: 'none' };
-    let historyData = {};
-    let chartInstance = null;
+    <script>
+        // 전역 데이터 상태
+        let rawHistoryData = {};
+        let filteredHistoryData = {};
+        let statusData = { status: "fresh", error_code: "none", last_observed_at: "-" };
+        let priceChart = null;
 
-    async function init() {
-      try {
-        const [hRes, sRes] = await Promise.all([
-          fetch('./data/history.json?t=' + Date.now()),
-          fetch('./data/status.json?t=' + Date.now())
-        ]);
-        if (hRes.ok) historyData = await hRes.json();
-        if (sRes.ok) appState = await sRes.json();
-      } catch (e) {
-        console.warn("로컬 서버 데이터 미발견. 기본 UI 상태로 초기화합니다.");
-      }
-      renderUI();
-    }
+        // 페이지 로드 시 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            setupDropzone();
+            loadAllData();
+        });
 
-    function renderUI() {
-      const badge = document.getElementById('statusBadge');
-      if (appState.status === 'fresh') {
-        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>FRESH / NONE</span>`;
-      } else {
-        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-rose-100 text-rose-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>STALE / ${appState.error_code.toUpperCase()}</span>`;
-      }
+        // 1. JSON 데이터 로드 (Status & History)
+        async function loadAllData() {
+            try {
+                const [statusRes, historyRes] = await Promise.all([
+                    fetch('./data/status.json').catch(() => null),
+                    fetch('./data/history.json').catch(() => null)
+                ]);
 
-      const dates = Object.keys(historyData).sort();
-      const tbody = document.getElementById('historyTable');
-      tbody.innerHTML = '';
+                if (statusRes && statusRes.ok) {
+                    statusData = await statusRes.json();
+                }
+                if (historyRes && historyRes.ok) {
+                    rawHistoryData = await historyRes.json();
+                }
+            } catch (err) {
+                console.warn('데이터 로드 실패 (기본값 사용):', err);
+            }
 
-      if (dates.length === 0) {
-        document.getElementById('latestValue').textContent = '-';
-        document.getElementById('deltaValue').textContent = '-';
-        document.getElementById('observedAt').textContent = '-';
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">저장된 데이터가 없습니다.</td></tr>`;
-        updateChart([], []);
-        return;
-      }
-
-      const latestDate = dates[dates.length - 1];
-      const latestItem = historyData[latestDate];
-
-      document.getElementById('latestValue').textContent = `${latestItem.normalized_value.toLocaleString()} ${latestItem.unit}`;
-      document.getElementById('observedAt').textContent = latestItem.source_observed_at || '-';
-      document.getElementById('sourceUrl').textContent = `출처: ${latestItem.source_url || '-'}`;
-
-      if (dates.length >= 2) {
-        const prevItem = historyData[dates[dates.length - 2]];
-        const delta = latestItem.normalized_value - prevItem.normalized_value;
-        const deltaEl = document.getElementById('deltaValue');
-        if (delta > 0) {
-          deltaEl.className = "text-3xl font-extrabold text-rose-500";
-          deltaEl.textContent = `+${delta.toLocaleString()} ${latestItem.unit}`;
-        } else if (delta < 0) {
-          deltaEl.className = "text-3xl font-extrabold text-blue-500";
-          deltaEl.textContent = `${delta.toLocaleString()} ${latestItem.unit}`;
-        } else {
-          deltaEl.className = "text-3xl font-extrabold text-slate-600";
-          deltaEl.textContent = `0 ${latestItem.unit}`;
+            // 시작 및 끝 날짜 기본값 세팅 (전체 범위)
+            setDefaultDates();
+            applyDateFilter();
+            renderStatus();
         }
-      } else {
-        document.getElementById('deltaValue').textContent = `0 ${latestItem.unit}`;
-      }
 
-      [...dates].reverse().forEach(d => {
-        const row = historyData[d];
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="p-2 font-bold">${row.record_date}</td>
-          <td class="p-2 text-slate-500 font-mono">${row.signal_id}</td>
-          <td class="p-2 text-right font-bold text-blue-600">${row.normalized_value.toLocaleString()} ${row.unit}</td>
-          <td class="p-2 text-slate-400 font-mono text-[10px]">${row.source_observed_at}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      updateChart(dates, dates.map(d => historyData[d].normalized_value));
-    }
-
-    function updateChart(labels, data) {
-      const ctx = document.getElementById('priceChart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: '배추 정규화 가격',
-            data: data,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
-            tension: 0.1
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-    }
-
-    // --- 유연한 Fixture 업로드 및 상태 시뮬레이션 핸들러 ---
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-blue-500'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('border-blue-500');
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) handleFile(e.target.files[0]);
-    });
-
-    function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const rawJson = JSON.parse(e.target.result);
-
-          // 1. 에러 코드 확인
-          const errorCode = rawJson.error_code || rawJson.error || rawJson.code;
-          if (errorCode && errorCode !== 'none' && errorCode !== 'success' && errorCode !== 200) {
-            appState = { status: 'stale', error_code: String(errorCode).toLowerCase() };
-            renderUI();
-            return;
-          }
-
-          // 2. 데이터 페이로드 및 필드 탐색
-          const target = rawJson.payload || rawJson.data || rawJson.result || rawJson;
-          const rawValue = target.normalized_value ?? target.value ?? target.price ?? target.avg_price ?? target.scsbd_prc;
-
-          if (rawValue === undefined || rawValue === null || isNaN(Number(rawValue))) {
-            appState = { status: 'stale', error_code: 'schema_break' };
-            renderUI();
-            return;
-          }
-
-          const obsAt = target.observed_at || target.source_observed_at || target.timestamp || new Date().toISOString();
-          const recordDate = target.record_date || (obsAt.includes('T') ? obsAt.split('T')[0] : obsAt.substring(0, 10));
-
-          // 3. 인메모리 historyData 업데이트
-          historyData[recordDate] = {
-            signal_id: target.signal_id || 'FIXTURE-UPLOADED',
-            source_url: file.name,
-            source_observed_at: obsAt,
-            normalized_value: Number(rawValue),
-            unit: target.unit || '원',
-            record_date: recordDate
-          };
-
-          appState = { status: 'fresh', error_code: 'none' };
-          renderUI();
-
-        } catch (err) {
-          appState = { status: 'stale', error_code: 'schema_break' };
-          renderUI();
+        // 2. 시작/종료 날짜 기본값 자동 설정
+        function setDefaultDates() {
+            const dates = Object.keys(rawHistoryData).sort();
+            if (dates.length > 0) {
+                document.getElementById('start-date').value = dates[0];
+                document.getElementById('end-date').value = dates[dates.length - 1];
+            } else {
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('start-date').value = today;
+                document.getElementById('end-date').value = today;
+            }
         }
-      };
-      reader.readAsText(file);
-    }
 
-    init();
-  </script>
+        // 3. 날짜 필터 적용 로직
+        function applyDateFilter() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            filteredHistoryData = {};
+
+            Object.keys(rawHistoryData).sort().forEach(date => {
+                if ((!startDate || date >= startDate) && (!endDate || date <= endDate)) {
+                    filteredHistoryData[date] = rawHistoryData[date];
+                }
+            });
+
+            renderDashboard();
+        }
+
+        // 4. 날짜 필터 초기화 (전체보기)
+        function resetDateFilter() {
+            setDefaultDates();
+            applyDateFilter();
+        }
+
+        // 5. 대시보드 렌더링 (차트, 지표, 테이블)
+        function renderDashboard() {
+            const sortedDates = Object.keys(filteredHistoryData).sort();
+            const tableBody = document.getElementById('data-table-body');
+
+            if (sortedDates.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="empty-msg">해당 기간의 데이터가 존재하지 않습니다.</td></tr>';
+                updateMetrics([]);
+                updateChart([], []);
+                return;
+            }
+
+            // 테이블 렌더링 (최신순 정렬)
+            tableBody.innerHTML = '';
+            const prices = [];
+            
+            [...sortedDates].reverse().forEach(date => {
+                const item = filteredHistoryData[date];
+                prices.push(item.normalized_value);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${item.record_date || date}</strong></td>
+                    <td>${item.normalized_value ? item.normalized_value.toLocaleString() : '-'} 원</td>
+                    <td>${item.unit || '원'}</td>
+                    <td><code>${item.signal_id || 'T04-CABBAGE'}</code></td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // 지표 및 차트 업데이트
+            const chartPrices = sortedDates.map(d => filteredHistoryData[d].normalized_value);
+            updateMetrics(sortedDates, chartPrices);
+            updateChart(sortedDates, chartPrices);
+        }
+
+        // 6. 상단 지표 계산 및 업데이트
+        function updateMetrics(sortedDates, prices) {
+            if (prices.length === 0) {
+                document.getElementById('metric-current-price').innerText = '- 원';
+                document.getElementById('metric-diff').innerText = '전일 대비 -';
+                document.getElementById('metric-avg-price').innerText = '- 원';
+                document.getElementById('metric-range').innerText = '- / -';
+                return;
+            }
+
+            const latestPrice = prices[prices.length - 1];
+            document.getElementById('metric-current-price').innerText = `${latestPrice.toLocaleString()} 원`;
+
+            // 전일 대비 변화량
+            const diffElem = document.getElementById('metric-diff');
+            if (prices.length > 1) {
+                const prevPrice = prices[prices.length - 2];
+                const diff = latestPrice - prevPrice;
+                if (diff > 0) {
+                    diffElem.className = 'metric-sub up';
+                    diffElem.innerText = `▲ 전일 대비 +${diff.toLocaleString()}원`;
+                } else if (diff < 0) {
+                    diffElem.className = 'metric-sub down';
+                    diffElem.innerText = `▼ 전일 대비 ${diff.toLocaleString()}원`;
+                } else {
+                    diffElem.className = 'metric-sub neutral';
+                    diffElem.innerText = `─ 전일과 동일`;
+                }
+            } else {
+                diffElem.className = 'metric-sub neutral';
+                diffElem.innerText = `비교 데이터 없음`;
+            }
+
+            // 평균가
+            const sum = prices.reduce((acc, curr) => acc + curr, 0);
+            const avg = Math.round(sum / prices.length);
+            document.getElementById('metric-avg-price').innerText = `${avg.toLocaleString()} 원`;
+
+            // 최고/최저가
+            const max = Math.max(...prices);
+            const min = Math.min(...prices);
+            document.getElementById('metric-range').innerText = `${max.toLocaleString()}원 / ${min.toLocaleString()}원`;
+        }
+
+        // 7. 시스템 상태 배지 렌더링
+        function renderStatus() {
+            const badge = document.getElementById('status-badge');
+            const statusText = document.getElementById('status-text');
+            const lastObserved = document.getElementById('last-observed');
+            const errorCodeElem = document.getElementById('metric-error-code');
+
+            if (statusData.status === 'fresh') {
+                badge.className = 'status-badge fresh';
+                statusText.innerText = 'FRESH';
+            } else {
+                badge.className = 'status-badge stale';
+                statusText.innerText = 'STALE';
+            }
+
+            lastObserved.innerText = `최신 관측 시각: ${statusData.last_observed_at || '-'}`;
+            errorCodeElem.innerText = statusData.error_code || 'none';
+        }
+
+        // 8. Chart.js 그래프 초기화 및 업데이트
+        function initChart() {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '배추 시세 (원)',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: value => value.toLocaleString() + '원'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(labels, data) {
+            if (!priceChart) return;
+            priceChart.data.labels = labels;
+            priceChart.data.datasets[0].data = data;
+            priceChart.update();
+        }
+
+        // 9. Fixture 파일 드래그 앤 드롭 시뮬레이터
+        function setupDropzone() {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('file-input');
+
+            dropzone.addEventListener('click', () => fileInput.click());
+
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('dragover');
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+        }
+
+        // 드롭된 JSON Fixture 파싱 및 브라우저 상태 업데이트
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const json = JSON.parse(e.target.result);
+
+                    // 에러 Fixture 수신 시
+                    if (json.status === 'stale' || json.error_code) {
+                        statusData.status = 'stale';
+                        statusData.error_code = json.error_code || 'error';
+                        alert(`[시뮬레이션] 에러 Fixture가 수신되었습니다.\n상태: STALE, 에러코드: ${statusData.error_code}`);
+                    } 
+                    // 정상 Fixture 수신 시
+                    else {
+                        statusData.status = 'fresh';
+                        statusData.error_code = 'none';
+                        statusData.last_observed_at = new Date().toISOString();
+
+                        const recordDate = json.record_date || new Date().toISOString().split('T')[0];
+                        const val = json.normalized_value || json.value || json.price || 0;
+
+                        rawHistoryData[recordDate] = {
+                            signal_id: json.signal_id || 'T04-CABBAGE',
+                            normalized_value: val,
+                            unit: json.unit || '원',
+                            record_date: recordDate
+                        };
+
+                        alert(`[시뮬레이션] 정상 Fixture 데이터가 수신되었습니다.\n날짜: ${recordDate}, 가격: ${val}원`);
+                    }
+
+                    renderStatus();
+                    applyDateFilter();
+                } catch (err) {
+                    alert('유효하지 않은 JSON 파일입니다.');
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
 </body>
 </html>
