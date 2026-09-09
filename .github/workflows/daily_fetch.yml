@@ -2,7 +2,7 @@ name: T04 Daily Data Fetcher
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # KST 19:00 실행 (UTC 10:00)
+    - cron: '0 10 * * *'  # KST 19:00 (UTC 10:00) 매일 자동 실행
   workflow_dispatch:
 
 jobs:
@@ -17,19 +17,19 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: pip install requests
 
-      - name: Run T04 Collector
+      - name: Run Live Collector
         working-directory: ./rice
         env:
           ricekey: ${{ secrets.ricekey }}
         run: python scripts/collect_data.py
 
-      - name: Commit and Push changes
+      - name: Commit and Push Updated Data
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add rice/data/
-          git commit -m "chore: update T04 readings and status [skip ci]" || exit 0
+          git commit -m "chore: update daily T04 data and status [skip ci]" || exit 0
           git push
