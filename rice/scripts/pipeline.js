@@ -24,41 +24,74 @@ function saveJson(filePath, data) {
 }
 
 /**
- * 외부에서 입력된 데이터(정상/장애)를 T04 규격에 맞게 정규화 및 저장 처리하는 파이프라인
+ * Fixture JSON의 중첩된 구조(payload, data 등)와 다양한 필드 구성을 정밀 탐색하는 함수
  */
+function extractFixtureData(rawInput) {
+  if (!rawInput || typeof rawInput !== 'object') {
+    return { isError: true, errorCode: 'schema_break' };
+  }
+
+  // 1. 에러 코드 감지 (error_code, error, code 등)
+  const errorCode = rawInput.error_code || rawInput.error || rawInput.code || (rawInput.status === 'error' ? 'schema_break' : null);
+  if (errorCode && errorCode !== 'none' && errorCode !== 'success' && errorCode !== 200) {
+    return { isError: true, errorCode: String(errorCode).toLowerCase() };
+  }
+
+  // 2. 중첩된 payload / data 탐색
+  const target = rawInput.payload || rawInput.data || rawInput.result || rawInput;
+
+  // 3. 수치값 탐색
+  const rawValue = target.normalized_value ?? target.value ?? target.price ?? target.avg_price ?? target.scsbd_prc;
+
+  if (rawValue === undefined || rawValue === null || isNaN(Number(rawValue))) {
+    return { isError: true, errorCode: 'schema_break' };
+  }
+
+  const normalizedValue = Number(rawValue);
+
+  // 4. 관측 시각 및 날짜 탐색
+  const observedAt = target.observed_at || target.source_observed_at || target.timestamp || rawInput.observed_at || new Date().toISOString();
+  const recordDate = target.record_date || (observedAt.includes('T') ? observedAt.split('T')[0] : observedAt.substring(0, 10));
+
+  return {
+    isError: false,
+    data: {
+      signal_id: target.signal_id || rawInput.signal_id || 'T04-FIXTURE',
+      source_url: target.source_url || rawInput.source_url || 'fixture://external-input',
+      source_observed_at: observedAt,
+      normalized_value: normalizedValue,
+      unit: target.unit || rawInput.unit || '원',
+      record_date: recordDate
+    }
+  };
+}
+
 function processReading(readingInput) {
   const history = loadJson(HISTORY_FILE, {});
   const currentStatus = loadJson(STATUS_FILE, { status: 'fresh', error_code: 'none', last_observed_at: null });
 
-  // 1. 에러/장애 발생 시: 기존 history 데이터 보존 + stale 상태 변경
-  if (readingInput.error_code && readingInput.error_code !== 'none') {
+  const extracted = extractFixtureData(readingInput);
+
+  // 1. 에러 발생 시: 기존 history 보존 + status stale 변경
+  if (extracted.isError) {
     currentStatus.status = 'stale';
-    currentStatus.error_code = readingInput.error_code;
+    currentStatus.error_code = extracted.errorCode;
     saveJson(STATUS_FILE, currentStatus);
     return { success: false, status: currentStatus };
   }
 
-  // 2. 정상 응답 시: record_date 기준 원자적 덮어쓰기(Upsert)
-  const recordDate = readingInput.observed_at ? readingInput.observed_at.split('T')[0] : (readingInput.record_date || new Date().toISOString().split('T')[0]);
-  const normalizedReading = {
-    signal_id: readingInput.signal_id || 'T04-CABBAGE',
-    source_url: readingInput.source_url || 'https://apis.data.go.kr',
-    source_observed_at: readingInput.observed_at || new Date().toISOString(),
-    normalized_value: readingInput.value !== undefined ? readingInput.value : readingInput.normalized_value,
-    unit: readingInput.unit || '원',
-    record_date: recordDate
-  };
-
-  history[recordDate] = normalizedReading;
+  // 2. 정상 데이터 수신 시: record_date 키 기준 덮어쓰기 (Upsert)
+  const item = extracted.data;
+  history[item.record_date] = item;
   saveJson(HISTORY_FILE, history);
 
-  // 3. 상태 정상(fresh/none) 복구
+  // 3. status fresh 복구
   currentStatus.status = 'fresh';
   currentStatus.error_code = 'none';
-  currentStatus.last_observed_at = normalizedReading.source_observed_at;
+  currentStatus.last_observed_at = item.source_observed_at;
   saveJson(STATUS_FILE, currentStatus);
 
-  return { success: true, reading: normalizedReading, status: currentStatus };
+  return { success: true, reading: item, status: currentStatus };
 }
 
 function resetPipeline() {
