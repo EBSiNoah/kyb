@@ -1,17 +1,21 @@
 import os
+import sys
 import time
 import json
 import requests
 from datetime import datetime
 
-def fetch_and_process_auction_data():
+def fetch_and_process_auction_data(target_date=None):
     # 1. Secret Key 환경변수(ricekey) 불러오기
     service_key = os.environ.get("ricekey")
     if not service_key:
         raise ValueError("환경변수 'ricekey'가 설정되지 않았습니다.")
 
-    # 2. 오늘 날짜 구하기 (YYYY-MM-DD)
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    # 2. 수집 대상 날짜 결정 (인자가 전달되면 해당 날짜, 없으면 오늘 날짜)
+    if not target_date:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+    else:
+        today_str = target_date
     
     # 3. API 요청 주소 및 파라미터 설정
     base_url = "https://apis.data.go.kr/B552845/katRealTime2/trades2"
@@ -23,7 +27,7 @@ def fetch_and_process_auction_data():
         "pageNo": 1
     }
 
-    print(f"[{today_str}] API 데이터 요청 시작...")
+    print(f"[{today_str}] API 데이터 수집 요청 시작...")
 
     # 4. 요청 및 타임아웃(10초) / 소요시간(deadline_ms) 측정
     start_time = time.time()
@@ -35,18 +39,18 @@ def fetch_and_process_auction_data():
         response.raise_for_status()
         data = response.json()
 
-        # 5. 표준 Key 규격 매핑
+        # 5. 표준 Key 규격 매핑 (status, stored_value, record_date, deadline_ms, source_url)
         result_code = data.get("header", {}).get("resultCode", str(response.status_code))
         items = data.get("body", {}).get("items", [])
 
         mapped_data_list = []
         for item in items:
             mapped_data_list.append({
-                "status": result_code,                        # resultCode -> status
-                "stored_value": item.get("scsbd_prc"),         # scsbd_prc -> stored_value
-                "record_date": item.get("scsbd_dt"),           # scsbd_dt -> record_date
-                "deadline_ms": deadline_ms,                    # 응답 소요 시간(ms)
-                "source_url": base_url                         # 명세서 서비스 URL
+                "status": result_code,
+                "stored_value": item.get("scsbd_prc"),
+                "record_date": item.get("scsbd_dt"),
+                "deadline_ms": deadline_ms,
+                "source_url": base_url
             })
 
         print(f"총 {len(mapped_data_list)}건 수집 완료 (소요시간: {deadline_ms}ms)")
@@ -58,7 +62,7 @@ def fetch_and_process_auction_data():
         mapped_data_list = [{
             "status": "TIMEOUT_ERROR",
             "stored_value": None,
-            "record_date": None,
+            "record_date": today_str,
             "deadline_ms": deadline_ms,
             "source_url": base_url,
             "error": "Request timed out after 10000ms"
@@ -71,7 +75,7 @@ def fetch_and_process_auction_data():
         mapped_data_list = [{
             "status": "ERROR",
             "stored_value": None,
-            "record_date": None,
+            "record_date": today_str,
             "deadline_ms": deadline_ms,
             "source_url": base_url,
             "error": str(e)
@@ -91,4 +95,6 @@ def fetch_and_process_auction_data():
     print(f"결과 파일 저장 완료: {filename}")
 
 if __name__ == "__main__":
-    fetch_and_process_auction_data()
+    # 커맨드라인 인자로 날짜가 들어왔는지 확인 (예: python collect_data.py 2026-09-05)
+    req_date = sys.argv[1] if len(sys.argv) > 1 else None
+    fetch_and_process_auction_data(req_date)
