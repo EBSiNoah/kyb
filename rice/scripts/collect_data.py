@@ -43,19 +43,33 @@ def fetch_and_process_auction_data(target_date=None):
         data = response.json()
 
         result_code = data.get("header", {}).get("resultCode", str(response.status_code))
+        result_msg = data.get("header", {}).get("resultMsg", "")
+        total_count = data.get("body", {}).get("totalCount")
         items = data.get("body", {}).get("items", [])
 
-        mapped_data_list = []
-        for item in items:
-            mapped_data_list.append({
+        if items:
+            mapped_data_list = []
+            for item in items:
+                mapped_data_list.append({
+                    "status": result_code,
+                    "stored_value": item.get("scsbd_prc"),
+                    "record_date": item.get("scsbd_dt"),
+                    "deadline_ms": deadline_ms,
+                    "source_url": base_url
+                })
+        else:
+            # items가 비어도 원인을 알 수 있도록 resultCode/resultMsg/totalCount를 남겨둔다.
+            # (HTTP 200이지만 API 자체 오류코드가 온 경우와, 진짜로 해당일 데이터가 없는 경우를 구분하기 위함)
+            mapped_data_list = [{
                 "status": result_code,
-                "stored_value": item.get("scsbd_prc"),
-                "record_date": item.get("scsbd_dt"),
+                "stored_value": None,
+                "record_date": today_str,
                 "deadline_ms": deadline_ms,
-                "source_url": base_url
-            })
+                "source_url": base_url,
+                "note": f"조회된 낙찰 데이터 없음 (resultMsg: {result_msg}, totalCount: {total_count})"
+            }]
 
-        print(f"총 {len(mapped_data_list)}건 수집 완료 (소요시간: {deadline_ms}ms)")
+        print(f"총 {len(items)}건 수집 완료 (resultCode: {result_code}, resultMsg: {result_msg}, totalCount: {total_count}, 소요시간: {deadline_ms}ms)")
 
     except Exception as e:
         end_time = time.time()
