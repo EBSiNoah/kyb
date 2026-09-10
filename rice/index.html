@@ -22,7 +22,15 @@
 
     .chart-container { position: relative; width: 100%; height: 380px; margin-top: 15px; }
     #statusMsg { font-weight: bold; color: #495057; margin-top: 10px; }
-    
+
+    .table-wrap { margin-top: 20px; overflow-x: auto; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.data-table th, table.data-table td { padding: 8px 10px; border-bottom: 1px solid #e9ecef; text-align: left; white-space: nowrap; }
+    table.data-table th { background: #eef2f5; color: #495057; position: sticky; top: 0; }
+    table.data-table tbody tr:hover { background: #f8f9fa; }
+    table.data-table td a { color: #007bff; text-decoration: none; }
+    table.data-table td a:hover { text-decoration: underline; }
+
   </style>
 </head>
 <body>
@@ -60,11 +68,99 @@
     <div class="chart-container">
       <canvas id="valueChart"></canvas>
     </div>
+
+    <!-- 필드별 데이터 목록 -->
+    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (record_date / status / stored_value / deadline_ms / source_url)</h4>
+    <div class="table-wrap" id="dataTableContainer">
+      <p style="color:#868e96; font-size:13px;">조회하거나 파일을 첨부하면 여기에 표시됩니다.</p>
+    </div>
   </div>
 
   <script>
     let myChart = null;
     const MIN_DATE = "2025-01-01";
+
+    // 현재 그래프/표에 표시 중인 전체 데이터 (구간 조회 결과 + 첨부파일로 추가된 데이터가 함께 누적됩니다)
+    let currentPoints = [];
+
+    // 날짜별 데이터 캐시: 저장소(repo)에는 저장되지 않고, 이 탭을 열어둔 세션 동안만 메모리에 유지됩니다.
+    // (새로고침하면 초기화됩니다.)
+    const sessionDataCache = {};
+
+    function cacheStandardPoints(items) {
+      const byDate = {};
+      items.forEach(item => {
+        const d = item.record_date;
+        if (!d) return;
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(item);
+      });
+      // 새로 들어온 날짜의 데이터로 해당 날짜의 캐시를 갱신(교체)합니다.
+      Object.keys(byDate).forEach(d => {
+        sessionDataCache[d] = byDate[d];
+      });
+    }
+
+    // newPoints를 currentPoints(현재 화면에 표시 중인 데이터)에 병합하고 다시 그립니다.
+    // 완전히 동일한 항목은 중복 추가하지 않습니다.
+    function mergeIntoCurrentView(newPoints, titleLabel) {
+      newPoints.forEach(np => {
+        const isDuplicate = currentPoints.some(p => JSON.stringify(p) === JSON.stringify(np));
+        if (!isDuplicate) currentPoints.push(np);
+      });
+      renderChart(currentPoints, titleLabel);
+      renderDataTable(currentPoints);
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '-';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderDataTable(items) {
+      const container = document.getElementById('dataTableContainer');
+      if (!items || items.length === 0) {
+        container.innerHTML = '<p style="color:#868e96; font-size:13px;">표시할 데이터가 없습니다.</p>';
+        return;
+      }
+
+      const sorted = [...items].sort((a, b) => new Date(a.record_date) - new Date(b.record_date));
+
+      const rows = sorted.map(item => {
+        const url = item.source_url;
+        const isSafeUrl = typeof url === 'string' && /^https?:\/\//i.test(url);
+        const urlCell = isSafeUrl
+          ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">링크</a>`
+          : escapeHtml(url);
+        return `
+          <tr>
+            <td>${escapeHtml(item.record_date)}</td>
+            <td>${escapeHtml(item.status)}</td>
+            <td>${escapeHtml(item.stored_value)}</td>
+            <td>${escapeHtml(item.deadline_ms)}</td>
+            <td>${urlCell}</td>
+          </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>record_date</th>
+              <th>status</th>
+              <th>stored_value</th>
+              <th>deadline_ms</th>
+              <th>source_url</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
 
     window.onload = () => {
       const today = new Date();
@@ -121,13 +217,18 @@
       let allStandardPoints = [];
       let missingDates = [];
 
-      // 저장소 데이터 파일 존재 여부 확인
+      // 세션 캐시 → 없으면 저장소 데이터 파일 확인
       const fetchPromises = targetDates.map(async (dateStr) => {
+        if (sessionDataCache[dateStr]) {
+          return sessionDataCache[dateStr];
+        }
         try {
           const res = await fetch(`./data/auction_${dateStr}.json`);
           if (res.ok) {
             const data = await res.json();
-            return parseToStandardFormat(data);
+            const items = parseToStandardFormat(data);
+            sessionDataCache[dateStr] = items; // 세션 동안 기억
+            return items;
           } else {
             missingDates.push(dateStr);
             return [];
@@ -145,12 +246,16 @@
 
       if (allStandardPoints.length === 0) {
         statusMsg.innerHTML = `<span style="color:#d9534f;">⚠️ 선택한 기간의 수집된 데이터가 없습니다.</span><br>` +
-                              `<small>(누락된 날짜: ${missingDates.join(', ')} — GitHub Actions 워크플로우를 수동으로 실행하거나, 스케줄 실행을 기다려 주세요.)</small>`;
+                              `<small>(누락된 날짜: ${missingDates.join(', ')} — GitHub Actions 워크플로우를 수동으로 실행하거나, 스케줄 실행을 기다려 주세요. 또는 아래에서 해당 날짜의 JSON 파일을 첨부하면 그래프에 바로 반영됩니다.)</small>`;
         if (myChart) myChart.destroy();
+        currentPoints = [];
+        renderDataTable([]);
         return;
       }
 
-      renderChart(allStandardPoints, `조회 구간: ${startDateStr} ~ ${endDateStr}`);
+      currentPoints = allStandardPoints;
+      renderChart(currentPoints, `조회 구간: ${startDateStr} ~ ${endDateStr}`);
+      renderDataTable(currentPoints);
 
       if (missingDates.length > 0) {
         statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (누락된 날짜 ${missingDates.length}일: ${missingDates.join(', ')})`;
@@ -187,8 +292,9 @@
         }
       }
 
-      renderChart(allPoints, "첨부파일 로드 데이터");
-      statusMsg.textContent = `첨부파일로부터 총 ${allPoints.length}건의 데이터를 로드했습니다.`;
+      cacheStandardPoints(allPoints);
+      mergeIntoCurrentView(allPoints, "구간 조회 + 첨부파일 데이터");
+      statusMsg.textContent = `첨부파일로부터 ${allPoints.length}건을 추가했습니다. (현재 그래프에 반영됨, 총 ${currentPoints.length}건 · 날짜별로 세션 동안 기억됩니다)`;
     }
 
     function renderChart(standardDataList, titleLabel) {
