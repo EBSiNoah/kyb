@@ -24,7 +24,7 @@ jobs:
         working-directory: ./rice
         env:
           ricekey: ${{ secrets.ricekey }}
-        run: python scripts/collect_data.py
+        run: python rice/scripts/collect_data.py
 
       - name: Commit and Push Updated Data
         run: |
