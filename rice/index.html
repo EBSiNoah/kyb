@@ -3,235 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>T04 오늘의 진짜 정보판</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>경매 정보 수집 현황</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
+    .container { max-width: 800px; margin: 0 auto; }
+    input, button { padding: 8px 12px; margin-right: 5px; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 p-6">
+<body>
+  <div class="container">
+    <h2>🌾 공영도매시장 경매 데이터 수집 페이지</h2>
 
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-md border border-slate-200">
-    <header class="mb-6 flex justify-between items-center border-b pb-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">🌾 T04 오늘의 진짜 정보판 (배추 시세)</h1>
-        <p class="text-xs text-slate-500 mt-1" id="sourceUrl">출처: 로딩 중...</p>
-      </div>
-      <div id="statusBadge" class="px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-gray-100 text-gray-600">
-        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-        <span>LOADING</span>
-      </div>
-    </header>
-
-    <!-- 외부 JSON (Fixtures) 파일 업로드/드롭 영역 -->
-    <div id="dropZone" class="mb-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-4 text-center bg-slate-50 transition-colors cursor-pointer">
-      <input type="file" id="fileInput" accept=".json" class="hidden">
-      <p class="text-xs text-slate-600 font-medium">📥 외부 Fixture JSON 파일을 이곳에 드래그하거나 클릭하여 업로드하세요</p>
-      <p class="text-[10px] text-slate-400 mt-1">정상/장애 Fixture를 수신해 웹 화면의 반응형 상태를 즉시 테스트합니다.</p>
+    <div style="margin-bottom: 20px;">
+      <label for="dateInput">수집 일자 조회: </label>
+      <input type="date" id="dateInput">
+      <button onclick="loadSavedData()">저장된 데이터 불러오기</button>
     </div>
 
-    <!-- 대시보드 지표 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">최신 정규화 값</div>
-        <div class="text-3xl font-extrabold text-blue-600" id="latestValue">-</div>
-      </div>
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">전일 대비 변화량</div>
-        <div class="text-3xl font-extrabold" id="deltaValue">-</div>
-      </div>
-      <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div class="text-xs text-slate-500 mb-1">관측 시각 (KST)</div>
-        <div class="text-xs font-mono font-medium text-slate-700 mt-2" id="observedAt">-</div>
-      </div>
-    </div>
-
-    <!-- 차트 -->
-    <div class="mb-6 relative h-64 border border-slate-100 rounded-lg p-2">
-      <canvas id="priceChart"></canvas>
-    </div>
-
-    <!-- 히스토리 테이블 -->
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-xs border-collapse">
-        <thead>
-          <tr class="bg-slate-100 text-slate-600 border-b">
-            <th class="p-2">날짜 (record_date)</th>
-            <th class="p-2">Signal ID</th>
-            <th class="p-2 text-right">정규화 값 (value)</th>
-            <th class="p-2">관측 시각</th>
-          </tr>
-        </thead>
-        <tbody id="historyTable" class="divide-y divide-slate-100"></tbody>
-      </table>
-    </div>
+    <h3>표준 JSON 결과 (`status`, `stored_value`, `record_date`, `deadline_ms`, `source_url`)</h3>
+    <pre id="result">날짜를 선택하고 버튼을 누르세요.</pre>
   </div>
 
   <script>
-    let appState = { status: 'fresh', error_code: 'none' };
-    let historyData = {};
-    let chartInstance = null;
+    // 오늘 날짜로 초기화
+    document.getElementById('dateInput').value = new Date().toISOString().substring(0, 10);
 
-    async function init() {
+    async function loadSavedData() {
+      const selectedDate = document.getElementById('dateInput').value;
+      const resultEl = document.getElementById('result');
+      
+      // rice/data/auction_YYYY-MM-DD.json 파일 경로 접근
+      const filePath = `./data/auction_${selectedDate}.json`;
+      resultEl.textContent = "데이터 불러오는 중...";
+
       try {
-        const [hRes, sRes] = await Promise.all([
-          fetch('./data/history.json?t=' + Date.now()),
-          fetch('./data/status.json?t=' + Date.now())
-        ]);
-        if (hRes.ok) historyData = await hRes.json();
-        if (sRes.ok) appState = await sRes.json();
-      } catch (e) {
-        console.warn("로컬 서버 데이터 미발견. 기본 UI 상태로 초기화합니다.");
-      }
-      renderUI();
-    }
-
-    function renderUI() {
-      const badge = document.getElementById('statusBadge');
-      if (appState.status === 'fresh') {
-        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-emerald-100 text-emerald-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span>FRESH / NONE</span>`;
-      } else {
-        badge.className = "px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 bg-rose-100 text-rose-800";
-        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>STALE / ${appState.error_code.toUpperCase()}</span>`;
-      }
-
-      const dates = Object.keys(historyData).sort();
-      const tbody = document.getElementById('historyTable');
-      tbody.innerHTML = '';
-
-      if (dates.length === 0) {
-        document.getElementById('latestValue').textContent = '-';
-        document.getElementById('deltaValue').textContent = '-';
-        document.getElementById('observedAt').textContent = '-';
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">저장된 데이터가 없습니다.</td></tr>`;
-        updateChart([], []);
-        return;
-      }
-
-      const latestDate = dates[dates.length - 1];
-      const latestItem = historyData[latestDate];
-
-      document.getElementById('latestValue').textContent = `${latestItem.normalized_value.toLocaleString()} ${latestItem.unit}`;
-      document.getElementById('observedAt').textContent = latestItem.source_observed_at || '-';
-      document.getElementById('sourceUrl').textContent = `출처: ${latestItem.source_url || '-'}`;
-
-      if (dates.length >= 2) {
-        const prevItem = historyData[dates[dates.length - 2]];
-        const delta = latestItem.normalized_value - prevItem.normalized_value;
-        const deltaEl = document.getElementById('deltaValue');
-        if (delta > 0) {
-          deltaEl.className = "text-3xl font-extrabold text-rose-500";
-          deltaEl.textContent = `+${delta.toLocaleString()} ${latestItem.unit}`;
-        } else if (delta < 0) {
-          deltaEl.className = "text-3xl font-extrabold text-blue-500";
-          deltaEl.textContent = `${delta.toLocaleString()} ${latestItem.unit}`;
-        } else {
-          deltaEl.className = "text-3xl font-extrabold text-slate-600";
-          deltaEl.textContent = `0 ${latestItem.unit}`;
+        const response = await fetch(filePath);
+        if (!response.ok) {
+          throw new Error(`해당 날짜(${selectedDate})의 저장된 데이터가 없습니다.`);
         }
-      } else {
-        document.getElementById('deltaValue').textContent = `0 ${latestItem.unit}`;
+        const data = await response.json();
+        resultEl.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        resultEl.textContent = err.message;
       }
-
-      [...dates].reverse().forEach(d => {
-        const row = historyData[d];
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="p-2 font-bold">${row.record_date}</td>
-          <td class="p-2 text-slate-500 font-mono">${row.signal_id}</td>
-          <td class="p-2 text-right font-bold text-blue-600">${row.normalized_value.toLocaleString()} ${row.unit}</td>
-          <td class="p-2 text-slate-400 font-mono text-[10px]">${row.source_observed_at}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      updateChart(dates, dates.map(d => historyData[d].normalized_value));
     }
-
-    function updateChart(labels, data) {
-      const ctx = document.getElementById('priceChart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-      chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: '배추 정규화 가격',
-            data: data,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
-            tension: 0.1
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-    }
-
-    // --- 유연한 Fixture 업로드 및 상태 시뮬레이션 핸들러 ---
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-blue-500'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('border-blue-500');
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) handleFile(e.target.files[0]);
-    });
-
-    function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const rawJson = JSON.parse(e.target.result);
-
-          // 1. 에러 코드 확인
-          const errorCode = rawJson.error_code || rawJson.error || rawJson.code;
-          if (errorCode && errorCode !== 'none' && errorCode !== 'success' && errorCode !== 200) {
-            appState = { status: 'stale', error_code: String(errorCode).toLowerCase() };
-            renderUI();
-            return;
-          }
-
-          // 2. 데이터 페이로드 및 필드 탐색
-          const target = rawJson.payload || rawJson.data || rawJson.result || rawJson;
-          const rawValue = target.normalized_value ?? target.value ?? target.price ?? target.avg_price ?? target.scsbd_prc;
-
-          if (rawValue === undefined || rawValue === null || isNaN(Number(rawValue))) {
-            appState = { status: 'stale', error_code: 'schema_break' };
-            renderUI();
-            return;
-          }
-
-          const obsAt = target.observed_at || target.source_observed_at || target.timestamp || new Date().toISOString();
-          const recordDate = target.record_date || (obsAt.includes('T') ? obsAt.split('T')[0] : obsAt.substring(0, 10));
-
-          // 3. 인메모리 historyData 업데이트
-          historyData[recordDate] = {
-            signal_id: target.signal_id || 'FIXTURE-UPLOADED',
-            source_url: file.name,
-            source_observed_at: obsAt,
-            normalized_value: Number(rawValue),
-            unit: target.unit || '원',
-            record_date: recordDate
-          };
-
-          appState = { status: 'fresh', error_code: 'none' };
-          renderUI();
-
-        } catch (err) {
-          appState = { status: 'stale', error_code: 'schema_break' };
-          renderUI();
-        }
-      };
-      reader.readAsText(file);
-    }
-
-    init();
   </script>
 </body>
 </html>
