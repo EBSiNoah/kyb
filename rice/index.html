@@ -3,50 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>경매 정보 수집 현황</title>
+  <title>경매 데이터 추이 시각화</title>
+  <!-- 차트 생성을 위한 Chart.js 라이브러리 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
-    .container { max-width: 800px; margin: 0 auto; }
-    input, button { padding: 8px 12px; margin-right: 5px; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background-color: #f8f9fa; color: #333; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; color: #2c3e50; }
+    .filter-box { display: flex; align-items: center; gap: 10px; margin-bottom: 25px; background: #eef2f5; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
+    label { font-weight: bold; }
+    input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 8px 18px; background-color: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background-color: #218838; }
+    .chart-container { position: relative; width: 100%; height: 400px; margin-top: 20px; }
+    #statusMsg { font-weight: bold; color: #6c757d; margin-top: 10px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🌾 공영도매시장 경매 데이터 수집 페이지</h2>
+    <h2>🌾 기간별 경매가(`stored_value`) 추이 그래프</h2>
 
-    <div style="margin-bottom: 20px;">
-      <label for="dateInput">수집 일자 조회: </label>
-      <input type="date" id="dateInput">
-      <button onclick="loadSavedData()">저장된 데이터 불러오기</button>
+    <!-- 날짜 범위 선택 폼 -->
+    <div class="filter-box">
+      <label for="startDate">시작일:</label>
+      <input type="date" id="startDate">
+      
+      <label for="endDate">종료일:</label>
+      <input type="date" id="endDate">
+
+      <button onclick="loadAndDrawChart()">그래프 조회</button>
     </div>
 
-    <h3>표준 JSON 결과 (`status`, `stored_value`, `record_date`, `deadline_ms`, `source_url`)</h3>
-    <pre id="result">날짜를 선택하고 버튼을 누르세요.</pre>
+    <div id="statusMsg">날짜를 지정하고 조회 버튼을 누르세요.</div>
+
+    <!-- 차트가 그려질 캔버스 영역 -->
+    <div class="chart-container">
+      <canvas id="valueChart"></canvas>
+    </div>
   </div>
 
   <script>
-    // 오늘 날짜로 초기화
-    document.getElementById('dateInput').value = new Date().toISOString().substring(0, 10);
+    let myChart = null; // Chart 객체 인스턴스 저장용
 
-    async function loadSavedData() {
-      const selectedDate = document.getElementById('dateInput').value;
-      const resultEl = document.getElementById('result');
+    // 초기 날짜 설정 (최근 7일간 설정)
+    window.onload = () => {
+      const today = new Date();
+      const lastWeek = new Date();
+      lastWeek.setDate(today.getDate() - 7);
+
+      document.getElementById('endDate').value = today.toISOString().substring(0, 10);
+      document.getElementById('startDate').value = lastWeek.toISOString().substring(0, 10);
       
-      // rice/data/auction_YYYY-MM-DD.json 파일 경로 접근
-      const filePath = `./data/auction_${selectedDate}.json`;
-      resultEl.textContent = "데이터 불러오는 중...";
+      loadAndDrawChart(); // 페이지 로드 시 자동 조회
+    };
 
-      try {
-        const response = await fetch(filePath);
-        if (!response.ok) {
-          throw new Error(`해당 날짜(${selectedDate})의 저장된 데이터가 없습니다.`);
-        }
-        const data = await response.json();
-        resultEl.textContent = JSON.stringify(data, null, 2);
-      } catch (err) {
-        resultEl.textContent = err.message;
+    // 두 날짜 사이의 YYYY-MM-DD 목록 생성 함수
+    function getDateRange(startDateStr, endDateStr) {
+      const dateList = [];
+      let currentDate = new Date(startDateStr);
+      const stopDate = new Date(endDateStr);
+
+      while (currentDate <= stopDate) {
+        dateList.push(currentDate.toISOString().substring(0, 10));
+        currentDate.setDate(currentDate.getDate() + 1);
       }
+      return dateList;
+    }
+
+    // 선택된 기간 동안의 JSON 데이터 다중 로드 및 차트 렌더링
+    async function loadAndDrawChart() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const statusMsg = document.getElementById('statusMsg');
+
+      if (!startDate || !endDate) {
+        alert("시작일과 종료일을 모두 선택해주세요.");
+        return;
+      }
+
+      if (startDate > endDate) {
+        alert("시작일은 종료일보다 이전이어야 합니다.");
+        return;
+      }
+
+      statusMsg.textContent = "데이터 불러오는 중...";
+      const targetDates = getDateRange(startDate, endDate);
+
+      let aggregatedPoints = [];
+
+      // 선택된 모든 날짜의 JSON 파일 동시 요청
+      const fetchPromises = targetDates.map(dateStr => {
+        const filePath = `./data/auction_${dateStr}.json`;
+        return fetch(filePath)
+          .then(res => res.ok ? res.json() : null)
+          .catch(() => null); // 파일이 없거나 에러 시 null 반환
+      });
+
+      const results = await Promise.all(fetchPromises);
+
+      // 개별 파일 내 항목들을 단일 배열로 합치기
+      results.forEach(items => {
+        if (items && Array.isArray(items)) {
+          items.forEach(item => {
+            // stored_value가 존재하고 정상 수집된 경우 데이터 추가
+            if (item.stored_value !== null && item.record_date) {
+              aggregatedPoints.push({
+                x: item.record_date,                      // record_date (시간)
+                y: parseFloat(item.stored_value)          // stored_value (낙찰가)
+              });
+            }
+          });
+        }
+      });
+
+      // record_date 오름차순 시간 순 정렬
+      aggregatedPoints.sort((a, b) => new Date(a.x) - new Date(b.x));
+
+      if (aggregatedPoints.length === 0) {
+        statusMsg.textContent = `선택한 기간(${startDate} ~ ${endDate})에 저장된 데이터가 없습니다.`;
+        if (myChart) myChart.destroy();
+        return;
+      }
+
+      statusMsg.textContent = `총 ${aggregatedPoints.length}건의 포인트를 불러왔습니다.`;
+
+      // 차트 데이터 구성
+      const labels = aggregatedPoints.map(p => p.x);
+      const values = aggregatedPoints.map(p => p.y);
+
+      // 기존 차트 존재 시 덮어쓰기를 위한 제거
+      if (myChart) {
+        myChart.destroy();
+      }
+
+      // Chart.js 선 그래프(Line Chart) 생성
+      const ctx = document.getElementById('valueChart').getContext('2d');
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '낙찰가 (stored_value)',
+            data: values,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            fill: true,
+            tension: 0.2 // 곡선 부드러움 정도
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              title: { display: true, text: '기록 일시 (record_date)' }
+            },
+            y: {
+              title: { display: true, text: '저장 값 / 낙찰가 (stored_value)' },
+              beginAtZero: false
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (context) => ` stored_value: ${context.parsed.y.toLocaleString()}원`
+              }
+            }
+          }
+        }
+      });
     }
   </script>
 </body>
