@@ -4,7 +4,12 @@ on:
   schedule:
     # 매일 한국 시간 09:00 (UTC 00:00) 자동 실행
     - cron: '0 0 * * *'
-  workflow_dispatch: # 수동 실행 허용
+  workflow_dispatch:
+    inputs:
+      target_date:
+        description: '수집할 날짜 (YYYY-MM-DD)'
+        required: false
+        default: ''
 
 jobs:
   collect-and-commit:
@@ -27,11 +32,12 @@ jobs:
     - name: 수집 스크립트 실행
       env:
         ricekey: ${{ secrets.ricekey }}
-      run: python rice/scripts/collect_data.py
+      run: |
+        python rice/scripts/collect_data.py ${{ github.event.inputs.target_date }}
 
     - name: 변경된 데이터 파일 Git Commit & Push
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add rice/data/
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Update rice auction data [$(date +'%Y-%m-%d')]" && git push)
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Update rice auction data [${{ github.event.inputs.target_date || 'Today' }}]" && git push)
