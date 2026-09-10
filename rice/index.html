@@ -102,12 +102,12 @@
     }
 
     // newPoints를 currentPoints(현재 화면에 표시 중인 데이터)에 병합하고 다시 그립니다.
-    // 완전히 동일한 항목은 중복 추가하지 않습니다.
+    // newPoints에 포함된 날짜는 기존 currentPoints의 같은 날짜 데이터를 덮어씁니다(교체).
     function mergeIntoCurrentView(newPoints, titleLabel) {
-      newPoints.forEach(np => {
-        const isDuplicate = currentPoints.some(p => JSON.stringify(p) === JSON.stringify(np));
-        if (!isDuplicate) currentPoints.push(np);
-      });
+      const incomingDates = new Set(newPoints.map(p => p.record_date));
+      // 같은 날짜의 기존 데이터는 제거하고 새 데이터로 교체
+      currentPoints = currentPoints.filter(p => !incomingDates.has(p.record_date));
+      currentPoints.push(...newPoints);
       renderChart(currentPoints, titleLabel);
       renderDataTable(currentPoints);
     }
