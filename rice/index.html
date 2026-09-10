@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>경매 데이터 기간별 조회 & 실시간 자동 수집</title>
+  <title>경매 데이터 기간별 조회</title>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -15,38 +15,23 @@
     .section-title { font-weight: bold; margin-bottom: 10px; color: #495057; }
     
     .filter-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    input[type="date"], input[type="text"], input[type="password"], input[type="file"] { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; background: white; }
+    input[type="date"], input[type="file"] { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; background: white; }
     
     button { padding: 7px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
     button:hover { background-color: #0056b3; }
-    .btn-trigger { background-color: #28a745; }
-    .btn-trigger:hover { background-color: #218838; }
 
     .chart-container { position: relative; width: 100%; height: 380px; margin-top: 15px; }
     #statusMsg { font-weight: bold; color: #495057; margin-top: 10px; }
-    pre { background: #f1f3f5; padding: 12px; border-radius: 5px; font-size: 12px; max-height: 150px; overflow-y: auto; }
     
-    .notice { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; font-size: 13px; margin-bottom: 15px; border-radius: 4px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🌾 경매 데이터 기간별 조회 & 실시간 수집</h2>
+    <h2>🌾 경매 데이터 기간별 조회</h2>
 
-    <!-- GitHub 연동 정보 설정 구역 -->
-    <div class="notice">
-      <strong>⚙️ GitHub Actions 실시간 수집 설정 (선택 사항)</strong><br>
-      없는 날짜 데이터 발생 시 GitHub Actions를 즉시 실행하려면 Repository 정보와 PAT Token을 입력해 주세요.<br>
-      <div style="margin-top: 8px;" class="filter-box">
-        <input type="text" id="ghOwner" placeholder="GitHub Username / Org">
-        <input type="text" id="ghRepo" placeholder="Repository Name">
-        <input type="password" id="ghPat" placeholder="GitHub Personal Access Token (PAT)">
-      </div>
-    </div>
-
-    <!-- 1. 기간 조회 및 동적 트리거 구역 -->
+    <!-- 1. 기간 조회 구역 -->
     <div class="section-box">
-      <div class="section-title">📅 1. 기간 조회 (부족 데이터 발생 시 GitHub Actions 수집 요청)</div>
+      <div class="section-title">📅 1. 기간 조회</div>
       <div class="filter-box">
         <label for="startDate">시작일:</label>
         <input type="date" id="startDate" min="2025-01-01">
@@ -75,9 +60,6 @@
     <div class="chart-container">
       <canvas id="valueChart"></canvas>
     </div>
-
-    <h4>📌 추출 및 매핑된 표준 JSON 데이터</h4>
-    <pre id="jsonPreview">데이터가 로드되면 여기에 표시됩니다.</pre>
   </div>
 
   <script>
@@ -91,11 +73,6 @@
 
       document.getElementById('endDate').value = today.toISOString().substring(0, 10);
       document.getElementById('startDate').value = lastWeek.toISOString().substring(0, 10);
-      
-      // 로컬 스토리지에 세팅값 저장 및 불러오기 지원
-      if (localStorage.getItem('ghOwner')) document.getElementById('ghOwner').value = localStorage.getItem('ghOwner');
-      if (localStorage.getItem('ghRepo')) document.getElementById('ghRepo').value = localStorage.getItem('ghRepo');
-      if (localStorage.getItem('ghPat')) document.getElementById('ghPat').value = localStorage.getItem('ghPat');
     };
 
     function parseToStandardFormat(rawData) {
@@ -114,60 +91,11 @@
       return result;
     }
 
-    // GitHub Actions (workflow_dispatch) 실시간 트리거 호출 함수
-    async function triggerGitHubAction(dateStr) {
-      const owner = document.getElementById('ghOwner').value.trim();
-      const repo = document.getElementById('ghRepo').value.trim();
-      const pat = document.getElementById('ghPat').value.trim();
-
-      if (!owner || !repo || !pat) {
-        console.warn(`[${dateStr}] GitHub 연동 정보(Owner/Repo/PAT)가 부족하여 실시간 자동 트리거를 건너뜁니다.`);
-        return false;
-      }
-
-      // 로컬 스토리지에 세팅 저장
-      localStorage.setItem('ghOwner', owner);
-      localStorage.setItem('ghRepo', repo);
-      localStorage.setItem('ghPat', pat);
-
-      const dispatchUrl = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/daily_fetch.yml/dispatches`;
-
-      try {
-        const response = await fetch(dispatchUrl, {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/vnd.github+json',
-            'Authorization': `Bearer ${pat}`,
-            'X-GitHub-Api-Version': '2022-11-28'
-          },
-          body: JSON.stringify({
-            ref: 'main',
-            inputs: {
-              target_date: dateStr
-            }
-          })
-        });
-
-        if (response.ok || response.status === 204) {
-          console.log(`[성공] ${dateStr} 날짜 수집 GitHub Actions 트리거 완료.`);
-          return true;
-        } else {
-          const errText = await response.text();
-          console.error(`[트리거 에러] HTTP ${response.status}:`, errText);
-          return false;
-        }
-      } catch (err) {
-        console.error(`[통신 에러] GitHub API 트리거 실패:`, err);
-        return false;
-      }
-    }
-
-    // 메인 기간 조회 및 부재 데이터 자동 수집 제어
+    // 메인 기간 조회 제어
     async function loadAndDrawChart() {
       const startDateStr = document.getElementById('startDate').value;
       const endDateStr = document.getElementById('endDate').value;
       const statusMsg = document.getElementById('statusMsg');
-      const jsonPreview = document.getElementById('jsonPreview');
 
       if (!startDateStr || !endDateStr) return alert("시작일과 종료일을 선택하세요.");
 
@@ -215,34 +143,17 @@
         if (items) allStandardPoints.push(...items);
       });
 
-      // 데이터가 없는 날짜가 발견된 경우 GitHub Actions 실시간 트리거 실행
-      if (missingDates.length > 0) {
-        statusMsg.textContent = `${missingDates.length}일분 데이터 부재 감지. GitHub Actions 수집 요청 중...`;
-        
-        let triggeredCount = 0;
-        for (const mDate of missingDates) {
-          const success = await triggerGitHubAction(mDate);
-          if (success) triggeredCount++;
-        }
-
-        if (triggeredCount > 0) {
-          alert(`[실시간 수집 요청 완료]\n\n${triggeredCount}개 일자의 데이터 수집 작업(GitHub Actions)을 트리거했습니다.\n\nAPI 수집 및 파일 생성이 완료될 때까지 약 15~30초 정도 소요됩니다. 잠시 후 다시 [구간 조회]를 눌러주세요.`);
-        }
-      }
-
       if (allStandardPoints.length === 0) {
         statusMsg.innerHTML = `<span style="color:#d9534f;">⚠️ 선택한 기간의 수집된 데이터가 없습니다.</span><br>` +
-                              `<small>(부족한 데이터 [${missingDates.join(', ')}] 수집 작업이 요청되었으니 20초 후 다시 조회해 보세요.)</small>`;
+                              `<small>(누락된 날짜: ${missingDates.join(', ')} — GitHub Actions 워크플로우를 수동으로 실행하거나, 스케줄 실행을 기다려 주세요.)</small>`;
         if (myChart) myChart.destroy();
-        jsonPreview.textContent = "데이터 없음";
         return;
       }
 
-      jsonPreview.textContent = JSON.stringify(allStandardPoints, null, 2);
       renderChart(allStandardPoints, `조회 구간: ${startDateStr} ~ ${endDateStr}`);
-      
+
       if (missingDates.length > 0) {
-        statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (${missingDates.length}일치 수집 작업 요청됨)`;
+        statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (누락된 날짜 ${missingDates.length}일: ${missingDates.join(', ')})`;
       } else {
         statusMsg.textContent = `조회 완료: 총 ${allStandardPoints.length}건의 데이터를 성공적으로 로드했습니다.`;
       }
@@ -262,7 +173,6 @@
     async function handleFileUpload(event) {
       const files = event.target.files;
       const statusMsg = document.getElementById('statusMsg');
-      const jsonPreview = document.getElementById('jsonPreview');
 
       if (!files || files.length === 0) return;
 
@@ -277,7 +187,6 @@
         }
       }
 
-      jsonPreview.textContent = JSON.stringify(allPoints, null, 2);
       renderChart(allPoints, "첨부파일 로드 데이터");
       statusMsg.textContent = `첨부파일로부터 총 ${allPoints.length}건의 데이터를 로드했습니다.`;
     }
