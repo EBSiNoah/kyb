@@ -33,6 +33,7 @@ jobs:
       env:
         ricekey: ${{ secrets.ricekey }}
       run: |
+        # target_date 파라미터를 파이썬 실행 인자로 전달
         python rice/scripts/collect_data.py ${{ github.event.inputs.target_date }}
 
     - name: 변경된 데이터 파일 Git Commit & Push
