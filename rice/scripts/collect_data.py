@@ -3,12 +3,18 @@ import sys
 import time
 import json
 import requests
+from urllib.parse import unquote
 from datetime import datetime
 
 def fetch_and_process_auction_data(target_date=None):
     service_key = os.environ.get("ricekey")
     if not service_key:
         raise ValueError("환경변수 'ricekey'가 설정되지 않았습니다.")
+
+    # 공공데이터포털 서비스키가 이미 URL-인코딩된 형태(%2F, %3D 등 포함)로 저장돼 있을 수 있음.
+    # requests는 params로 넘긴 값을 자동으로 다시 인코딩하므로, 미리 디코딩해서
+    # 이중 인코딩(예: %2F -> %252F)으로 인한 403 Forbidden을 방지한다.
+    service_key = unquote(service_key)
 
     # 인자로 넘어온 날짜가 있으면 해당 날짜, 없으면 오늘 날짜
     if not target_date:
