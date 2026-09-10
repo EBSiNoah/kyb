@@ -1,0 +1,10 @@
+[
+  {
+    "status": "200",
+    "stored_value": null,
+    "record_date": "2026-08-28",
+    "deadline_ms": 1405,
+    "source_url": "https://apis.data.go.kr/B552845/katRealTime2/trades2",
+    "note": "조회된 낙찰 데이터 없음 (resultMsg: , totalCount: None)"
+  }
+]
