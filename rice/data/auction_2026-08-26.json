@@ -1,10 +1,1 @@
-[
-  {
-    "status": "ERROR",
-    "stored_value": null,
-    "record_date": "2026-08-26",
-    "deadline_ms": 1289,
-    "source_url": "https://apis.data.go.kr/B552845/katRealTime2/trades2",
-    "error": "403 Client Error: Forbidden for url: https://apis.data.go.kr/B552845/katRealTime2/trades2?serviceKey=8fROj7dchICSWp3Hdii8MuYTuStHPzbYk242nWP%252FWNPAPv44dIZv5fibD%252FiagvkicKYndDafUSV28px8p3bc4A%253D%253D&cond%5Btrd_clcln_ymd%3A%3AEQ%5D=2026-08-26&returnType=JSON&numOfRows=100&pageNo=1"
-  }
-]
+[]
