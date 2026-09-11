@@ -1,0 +1,9 @@
+[
+  {
+    "status": 1,
+    "stored_value": "850.89",
+    "record_date": "2026-09-01",
+    "deadline_ms": 1734,
+    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
+  }
+]
