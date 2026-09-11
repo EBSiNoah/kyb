@@ -1,10 +1,9 @@
 [
   {
-    "status": "ERROR",
-    "stored_value": null,
+    "status": 1,
+    "stored_value": "846.65",
     "source_time": "2026-09-02",
-    "delay_ms": 1007,
-    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON",
-    "error": "('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))"
+    "delay_ms": 1922,
+    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
   }
 ]
