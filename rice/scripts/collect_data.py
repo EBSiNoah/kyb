@@ -39,14 +39,38 @@ def fetch_and_process_exchange_data(target_date=None):
         "searchdate": search_date_param,
         "data": "AP01",
     }
+    # 일부 공공기관 API 게이트웨이는 브라우저가 아닌 User-Agent(예: python-requests)를
+    # 봇으로 간주해 연결을 끊어버리는 경우가 있어, 브라우저처럼 보이는 값을 명시적으로 지정한다.
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
 
     print(f"[{today_str}] 환율 API 데이터 수집 요청 시작...")
 
     start_time = time.time()
+    max_attempts = 3
+    last_exception = None
+    response = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = requests.get(base_url, params=params, headers=headers, timeout=10.0)
+            last_exception = None
+            break
+        except requests.exceptions.RequestException as e:
+            last_exception = e
+            print(f"[재시도 {attempt}/{max_attempts}] 요청 실패: {type(e).__name__}: {e}")
+            if attempt < max_attempts:
+                time.sleep(2 * attempt)  # 2초, 4초 대기 후 재시도
+
+    end_time = time.time()
+    delay_ms = int((end_time - start_time) * 1000)
+
     try:
-        response = requests.get(base_url, params=params, timeout=10.0)
-        end_time = time.time()
-        delay_ms = int((end_time - start_time) * 1000)
+        if last_exception is not None:
+            # 재시도까지 모두 실패한 경우 (예: Connection aborted 등 네트워크 레벨 오류)
+            raise last_exception
 
         response.raise_for_status()
         data = response.json()
