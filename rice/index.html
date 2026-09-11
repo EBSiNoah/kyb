@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>경매 데이터 기간별 조회</title>
+  <title>엔화 환율 데이터 기간별 조회</title>
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -35,7 +35,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>🌾 경매 데이터 기간별 조회</h2>
+    <h2>💴 엔화(JPY) 환율 데이터 기간별 조회</h2>
 
     <!-- 1. 기간 조회 구역 -->
     <div class="section-box">
@@ -326,7 +326,7 @@
           maintainAspectRatio: false,
           scales: {
             x: { title: { display: true, text: '기록 일시 (record_date)' } },
-            y: { title: { display: true, text: '저장 값 (stored_value)' } }
+            y: { title: { display: true, text: '저장 값 (stored_value = TTB 전신환 받으실때 환율)' } }
           }
         }
       });
