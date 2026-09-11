@@ -70,7 +70,7 @@
     </div>
 
     <!-- 필드별 데이터 목록 -->
-    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (source_date / status / stored_value / delay_ms / source_url)</h4>
+    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (source_time / status / stored_value / delay_ms / source_url)</h4>
     <div class="table-wrap" id="dataTableContainer">
       <p style="color:#868e96; font-size:13px;">조회하거나 파일을 첨부하면 여기에 표시됩니다.</p>
     </div>
@@ -90,7 +90,7 @@
     function cacheStandardPoints(items) {
       const byDate = {};
       items.forEach(item => {
-        const d = item.source_date;
+        const d = item.source_time;
         if (!d) return;
         if (!byDate[d]) byDate[d] = [];
         byDate[d].push(item);
@@ -104,9 +104,9 @@
     // newPoints를 currentPoints(현재 화면에 표시 중인 데이터)에 병합하고 다시 그립니다.
     // newPoints에 포함된 날짜는 기존 currentPoints의 같은 날짜 데이터를 덮어씁니다(교체).
     function mergeIntoCurrentView(newPoints, titleLabel) {
-      const incomingDates = new Set(newPoints.map(p => p.source_date));
+      const incomingDates = new Set(newPoints.map(p => p.source_time));
       // 같은 날짜의 기존 데이터는 제거하고 새 데이터로 교체
-      currentPoints = currentPoints.filter(p => !incomingDates.has(p.source_date));
+      currentPoints = currentPoints.filter(p => !incomingDates.has(p.source_time));
       currentPoints.push(...newPoints);
       renderChart(currentPoints, titleLabel);
       renderDataTable(currentPoints);
@@ -129,7 +129,7 @@
         return;
       }
 
-      const sorted = [...items].sort((a, b) => new Date(a.source_date) - new Date(b.source_date));
+      const sorted = [...items].sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
 
       const rows = sorted.map(item => {
         const url = item.source_url;
@@ -139,7 +139,7 @@
           : escapeHtml(url);
         return `
           <tr>
-            <td>${escapeHtml(item.source_date)}</td>
+            <td>${escapeHtml(item.source_time)}</td>
             <td>${escapeHtml(item.status)}</td>
             <td>${escapeHtml(item.stored_value)}</td>
             <td>${escapeHtml(item.delay_ms)}</td>
@@ -151,7 +151,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>source_date</th>
+              <th>source_time</th>
               <th>status</th>
               <th>stored_value</th>
               <th>delay_ms</th>
@@ -177,7 +177,7 @@
         result.push({
           status: rawData.transport?.status ?? null,
           stored_value: rawData.expected?.stored_value ?? null,
-          source_date: rawData.payload?.source_date ?? rawData.expected?.source_date ?? null,
+          source_time: rawData.payload?.source_time ?? rawData.expected?.source_time ?? null,
           delay_ms: rawData.transport?.delay_ms ?? null,
           source_url: rawData.payload?.source_url ?? null
         });
@@ -298,9 +298,9 @@
     }
 
     function renderChart(standardDataList, titleLabel) {
-      standardDataList.sort((a, b) => new Date(a.source_date) - new Date(b.source_date));
+      standardDataList.sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
 
-      const labels = standardDataList.map(item => item.source_date ?? 'N/A');
+      const labels = standardDataList.map(item => item.source_time ?? 'N/A');
       const values = standardDataList.map(item => item.stored_value ?? 0);
 
       if (myChart) myChart.destroy();
@@ -325,7 +325,7 @@
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { title: { display: true, text: '기록 일시 (source_date)' } },
+            x: { title: { display: true, text: '기록 일시 (source_time)' } },
             y: { title: { display: true, text: '저장 값 (stored_value = TTB 전신환 받으실때 환율)' } }
           }
         }
