@@ -46,7 +46,7 @@ def fetch_and_process_exchange_data(target_date=None):
     try:
         response = requests.get(base_url, params=params, timeout=10.0)
         end_time = time.time()
-        deadline_ms = int((end_time - start_time) * 1000)
+        delay_ms = int((end_time - start_time) * 1000)
 
         response.raise_for_status()
         data = response.json()
@@ -56,8 +56,8 @@ def fetch_and_process_exchange_data(target_date=None):
             mapped_data_list = [{
                 "status": None,
                 "stored_value": None,
-                "record_date": today_str,
-                "deadline_ms": deadline_ms,
+                "source_date": today_str,
+                "delay_ms": delay_ms,
                 "source_url": base_url,
                 "note": "해당 날짜의 고시 환율 데이터 없음 (휴일/주말일 수 있음)"
             }]
@@ -70,8 +70,8 @@ def fetch_and_process_exchange_data(target_date=None):
                 mapped_data_list = [{
                     "status": first_result,
                     "stored_value": None,
-                    "record_date": today_str,
-                    "deadline_ms": deadline_ms,
+                    "source_date": today_str,
+                    "delay_ms": delay_ms,
                     "source_url": base_url,
                     "note": f"API 오류 (result={first_result}: {meaning})"
                 }]
@@ -89,17 +89,17 @@ def fetch_and_process_exchange_data(target_date=None):
                         mapped_data_list.append({
                             "status": item.get("result"),
                             "stored_value": item.get("ttb"),
-                            "record_date": today_str,
-                            "deadline_ms": deadline_ms,
+                            "source_date": today_str,
+                            "delay_ms": delay_ms,
                             "source_url": base_url
                         })
-                    print(f"총 {len(mapped_data_list)}건 수집 완료 (소요시간: {deadline_ms}ms)")
+                    print(f"총 {len(mapped_data_list)}건 수집 완료 (소요시간: {delay_ms}ms)")
                 else:
                     mapped_data_list = [{
                         "status": first_result,
                         "stored_value": None,
-                        "record_date": today_str,
-                        "deadline_ms": deadline_ms,
+                        "source_date": today_str,
+                        "delay_ms": delay_ms,
                         "source_url": base_url,
                         "note": f"응답 {len(data)}건 중 JPY 통화 데이터를 찾지 못함"
                     }]
@@ -107,13 +107,13 @@ def fetch_and_process_exchange_data(target_date=None):
 
     except Exception as e:
         end_time = time.time()
-        deadline_ms = int((end_time - start_time) * 1000)
+        delay_ms = int((end_time - start_time) * 1000)
         print(f"[실패] 에러 발생: {e}")
         mapped_data_list = [{
             "status": "ERROR",
             "stored_value": None,
-            "record_date": today_str,
-            "deadline_ms": deadline_ms,
+            "source_date": today_str,
+            "delay_ms": delay_ms,
             "source_url": base_url,
             "error": str(e)
         }]
