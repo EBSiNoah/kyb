@@ -2,14 +2,20 @@ name: Daily Rice Auction Data Collection
 
 on:
   schedule:
-    # 매일 한국 시간 09:00 (UTC 00:00) 자동 실행
-    - cron: '0 0 * * *'
+    # 매일 한국 시간 14:00 (UTC 05:00) 자동 실행
+    - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       target_date:
         description: '수집할 날짜 (YYYY-MM-DD)'
         required: false
         default: ''
+
+# GITHUB_TOKEN에 저장소 쓰기 권한을 명시적으로 부여.
+# 저장소 기본 설정(Settings > Actions > General > Workflow permissions)이
+# "Read repository contents permission"(읽기 전용)이어도 이 워크플로우는 항상 push가 가능하도록 함.
+permissions:
+  contents: write
 
 jobs:
   collect-and-commit:
@@ -31,7 +37,7 @@ jobs:
 
     - name: 수집 스크립트 실행
       env:
-        ricekey: ${{ secrets.ricekey }}
+        mesokey: ${{ secrets.mesokey }}
       run: |
         # target_date 파라미터를 파이썬 실행 인자로 전달
         python rice/scripts/collect_data.py ${{ github.event.inputs.target_date }}
@@ -41,4 +47,4 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add rice/data/
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Update rice auction data [${{ github.event.inputs.target_date || 'Today' }}]" && git push)
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto: Update exchange rate data [${{ github.event.inputs.target_date || 'Today' }}]" && git push)
