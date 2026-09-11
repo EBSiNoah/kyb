@@ -56,7 +56,7 @@ def fetch_and_process_exchange_data(target_date=None):
             mapped_data_list = [{
                 "status": None,
                 "stored_value": None,
-                "source_date": today_str,
+                "source_time": today_str,
                 "delay_ms": delay_ms,
                 "source_url": base_url,
                 "note": "해당 날짜의 고시 환율 데이터 없음 (휴일/주말일 수 있음)"
@@ -70,7 +70,7 @@ def fetch_and_process_exchange_data(target_date=None):
                 mapped_data_list = [{
                     "status": first_result,
                     "stored_value": None,
-                    "source_date": today_str,
+                    "source_time": today_str,
                     "delay_ms": delay_ms,
                     "source_url": base_url,
                     "note": f"API 오류 (result={first_result}: {meaning})"
@@ -89,7 +89,7 @@ def fetch_and_process_exchange_data(target_date=None):
                         mapped_data_list.append({
                             "status": item.get("result"),
                             "stored_value": item.get("ttb"),
-                            "source_date": today_str,
+                            "source_time": today_str,
                             "delay_ms": delay_ms,
                             "source_url": base_url
                         })
@@ -98,7 +98,7 @@ def fetch_and_process_exchange_data(target_date=None):
                     mapped_data_list = [{
                         "status": first_result,
                         "stored_value": None,
-                        "source_date": today_str,
+                        "source_time": today_str,
                         "delay_ms": delay_ms,
                         "source_url": base_url,
                         "note": f"응답 {len(data)}건 중 JPY 통화 데이터를 찾지 못함"
@@ -112,7 +112,7 @@ def fetch_and_process_exchange_data(target_date=None):
         mapped_data_list = [{
             "status": "ERROR",
             "stored_value": None,
-            "source_date": today_str,
+            "source_time": today_str,
             "delay_ms": delay_ms,
             "source_url": base_url,
             "error": str(e)
