@@ -28,7 +28,8 @@ def fetch_and_process_exchange_data(target_date=None):
     if not target_date:
         today_str = datetime.now().strftime("%Y-%m-%d")
     else:
-        today_str = target_date
+        # target_date에 시간 등이 섞여 들어와도 앞의 YYYY-MM-DD만 사용
+        today_str = target_date.strip()[:10]
 
     # 수출입은행 API는 searchdate를 yyyymmdd(하이픈 없음) 형식으로 요구함
     search_date_param = today_str.replace("-", "")
