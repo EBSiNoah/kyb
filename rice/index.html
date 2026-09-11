@@ -31,6 +31,13 @@
     table.data-table td a { color: #007bff; text-decoration: none; }
     table.data-table td a:hover { text-decoration: underline; }
 
+    .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .status-dot.ok { background: #28a745; }
+    .status-dot.bad { background: #d9534f; }
+    .status-cell { white-space: nowrap; font-weight: bold; }
+    .status-cell.ok-text { color: #28a745; }
+    .status-cell.bad-text { color: #d9534f; }
+
   </style>
 </head>
 <body>
@@ -70,7 +77,7 @@
     </div>
 
     <!-- 필드별 데이터 목록 -->
-    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (source_time / status / stored_value / delay_ms / source_url)</h4>
+    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (상태등 / source_time / status / stored_value / delay_ms / source_url)</h4>
     <div class="table-wrap" id="dataTableContainer">
       <p style="color:#868e96; font-size:13px;">조회하거나 파일을 첨부하면 여기에 표시됩니다.</p>
     </div>
@@ -122,6 +129,18 @@
         .replace(/'/g, '&#39;');
     }
 
+    // status가 1 또는 200이면 정상. 정상이더라도 화면에 표시해야 하는 5개 필드
+    // (status, stored_value, source_time, delay_ms, source_url) 중 하나라도 null/undefined면 비정상으로 처리합니다.
+    function isNormalItem(item) {
+      if (!item) return false;
+
+      const statusOk = item.status === 1 || item.status === '1' || item.status === 200 || item.status === '200';
+      if (!statusOk) return false;
+
+      const requiredFields = ['status', 'stored_value', 'source_time', 'delay_ms', 'source_url'];
+      return requiredFields.every(f => item[f] !== null && item[f] !== undefined);
+    }
+
     function renderDataTable(items) {
       const container = document.getElementById('dataTableContainer');
       if (!items || items.length === 0) {
@@ -137,8 +156,13 @@
         const urlCell = isSafeUrl
           ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">링크</a>`
           : escapeHtml(url);
+        const ok = isNormalItem(item);
+        const dotClass = ok ? 'ok' : 'bad';
+        const textClass = ok ? 'ok-text' : 'bad-text';
+        const label = ok ? '정상' : '비정상';
         return `
           <tr>
+            <td class="status-cell ${textClass}"><span class="status-dot ${dotClass}"></span>${label}</td>
             <td>${escapeHtml(item.source_time)}</td>
             <td>${escapeHtml(item.status)}</td>
             <td>${escapeHtml(item.stored_value)}</td>
@@ -151,6 +175,7 @@
         <table class="data-table">
           <thead>
             <tr>
+              <th>상태</th>
               <th>source_time</th>
               <th>status</th>
               <th>stored_value</th>
@@ -257,10 +282,14 @@
       renderChart(currentPoints, `조회 구간: ${startDateStr} ~ ${endDateStr}`);
       renderDataTable(currentPoints);
 
+      const normalCount = currentPoints.filter(isNormalItem).length;
+      const abnormalCount = currentPoints.length - normalCount;
+      const statusSummary = `정상 ${normalCount}건 / 비정상 ${abnormalCount}건 (그래프에는 정상 데이터만 반영됨)`;
+
       if (missingDates.length > 0) {
-        statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (누락된 날짜 ${missingDates.length}일: ${missingDates.join(', ')})`;
+        statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (${statusSummary}) · 누락된 날짜 ${missingDates.length}일: ${missingDates.join(', ')}`;
       } else {
-        statusMsg.textContent = `조회 완료: 총 ${allStandardPoints.length}건의 데이터를 성공적으로 로드했습니다.`;
+        statusMsg.textContent = `조회 완료: 총 ${allStandardPoints.length}건의 데이터를 로드했습니다 (${statusSummary})`;
       }
     }
 
@@ -294,14 +323,18 @@
 
       cacheStandardPoints(allPoints);
       mergeIntoCurrentView(allPoints, "구간 조회 + 첨부파일 데이터");
-      statusMsg.textContent = `첨부파일로부터 ${allPoints.length}건을 추가했습니다. (현재 그래프에 반영됨, 총 ${currentPoints.length}건 · 날짜별로 세션 동안 기억됩니다)`;
+      const normalCount = currentPoints.filter(isNormalItem).length;
+      const abnormalCount = currentPoints.length - normalCount;
+      statusMsg.textContent = `첨부파일로부터 ${allPoints.length}건을 추가했습니다. (현재 그래프에 반영됨, 총 ${currentPoints.length}건 · 정상 ${normalCount}건 / 비정상 ${abnormalCount}건 · 날짜별로 세션 동안 기억됩니다)`;
     }
 
     function renderChart(standardDataList, titleLabel) {
-      standardDataList.sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
+      // 그래프에는 "정상"으로 판정된 데이터만 반영합니다 (비정상 데이터는 표에서만 확인 가능)
+      const normalList = standardDataList.filter(isNormalItem);
+      normalList.sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
 
-      const labels = standardDataList.map(item => item.source_time ?? 'N/A');
-      const values = standardDataList.map(item => item.stored_value ?? 0);
+      const labels = normalList.map(item => item.source_time ?? 'N/A');
+      const values = normalList.map(item => item.stored_value ?? 0);
 
       if (myChart) myChart.destroy();
 
