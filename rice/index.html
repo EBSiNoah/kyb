@@ -196,18 +196,27 @@
       document.getElementById('startDate').value = lastWeek.toISOString().substring(0, 10);
     };
 
+    // source_time 값에서 앞의 YYYY-MM-DD 부분만 인식합니다.
+    // (예: "2026-08-27T10:32:00" 또는 "2026-08-27 10:32:00" -> "2026-08-27")
+    // 패턴에 맞지 않으면 원래 값을 그대로 반환합니다.
+    function toDateOnly(value) {
+      if (value === null || value === undefined) return value;
+      const match = String(value).match(/^\d{4}-\d{2}-\d{2}/);
+      return match ? match[0] : value;
+    }
+
     function parseToStandardFormat(rawData) {
       let result = [];
       if (rawData.payload || rawData.transport || rawData.expected) {
         result.push({
           status: rawData.transport?.status ?? null,
           stored_value: rawData.expected?.stored_value ?? null,
-          source_time: rawData.payload?.source_time ?? rawData.expected?.source_time ?? null,
+          source_time: toDateOnly(rawData.payload?.source_time ?? rawData.expected?.source_time ?? null),
           delay_ms: rawData.transport?.delay_ms ?? null,
           source_url: rawData.payload?.source_url ?? null
         });
       } else if (Array.isArray(rawData)) {
-        result = rawData;
+        result = rawData.map(item => ({ ...item, source_time: toDateOnly(item.source_time) }));
       }
       return result;
     }
