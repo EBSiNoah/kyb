@@ -77,7 +77,7 @@
     </div>
 
     <!-- 필드별 데이터 목록 -->
-    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 (상태등 / source_time / status / stored_value / delay_ms / source_url)</h4>
+    <h4 style="margin-bottom: 6px; color: #2c3e50;">📋 데이터 목록 </h4>
     <div class="table-wrap" id="dataTableContainer">
       <p style="color:#868e96; font-size:13px;">조회하거나 파일을 첨부하면 여기에 표시됩니다.</p>
     </div>
@@ -151,11 +151,11 @@
       const sorted = [...items].sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
 
       const rows = sorted.map(item => {
-        const url = item.source_url;
-        const isSafeUrl = typeof url === 'string' && /^https?:\/\//i.test(url);
-        const urlCell = isSafeUrl
-          ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">링크</a>`
-          : escapeHtml(url);
+        const dateOnly = toDateOnly(item.source_time);
+        const jsonPath = dateOnly ? `./data/auction_${dateOnly}.json` : null;
+        const urlCell = jsonPath
+          ? `<a href="${escapeHtml(jsonPath)}" target="_blank" rel="noopener noreferrer">JSON 보기</a>`
+          : '-';
         const ok = isNormalItem(item);
         const dotClass = ok ? 'ok' : 'bad';
         const textClass = ok ? 'ok-text' : 'bad-text';
@@ -176,11 +176,11 @@
           <thead>
             <tr>
               <th>상태</th>
-              <th>source_time</th>
-              <th>status</th>
-              <th>stored_value</th>
-              <th>delay_ms</th>
-              <th>source_url</th>
+              <th>기준 일</th>
+              <th>상태 코드</th>
+              <th>환율 값</th>
+              <th>데이터 요청 시간</th>
+              <th>원본 json</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -290,16 +290,7 @@
       currentPoints = allStandardPoints;
       renderChart(currentPoints, `조회 구간: ${startDateStr} ~ ${endDateStr}`);
       renderDataTable(currentPoints);
-
-      const normalCount = currentPoints.filter(isNormalItem).length;
-      const abnormalCount = currentPoints.length - normalCount;
-      const statusSummary = `정상 ${normalCount}건 / 비정상 ${abnormalCount}건 (그래프에는 정상 데이터만 반영됨)`;
-
-      if (missingDates.length > 0) {
-        statusMsg.textContent = `조회 완료: ${allStandardPoints.length}건 표시됨 (${statusSummary}) · 누락된 날짜 ${missingDates.length}일: ${missingDates.join(', ')}`;
-      } else {
-        statusMsg.textContent = `조회 완료: 총 ${allStandardPoints.length}건의 데이터를 로드했습니다 (${statusSummary})`;
-      }
+      statusMsg.textContent = '';
     }
 
     function getDateRange(startStr, endStr) {
