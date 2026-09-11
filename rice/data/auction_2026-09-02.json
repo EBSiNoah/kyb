@@ -1,0 +1,10 @@
+[
+  {
+    "status": "ERROR",
+    "stored_value": null,
+    "source_time": "2026-09-02",
+    "delay_ms": 1007,
+    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON",
+    "error": "('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))"
+  }
+]
