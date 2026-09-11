@@ -1,0 +1,10 @@
+[
+  {
+    "status": null,
+    "stored_value": null,
+    "source_time": "2026-08-29",
+    "delay_ms": 1088,
+    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON",
+    "note": "해당 날짜의 고시 환율 데이터 없음 (휴일/주말일 수 있음)"
+  }
+]
