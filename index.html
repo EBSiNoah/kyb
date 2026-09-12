@@ -187,7 +187,7 @@
             align-items: center;
         }
 
-        /* 2. 연락처 카드 (이력 카드 디자인 유지) */
+        /* 2. 연락처 카드 */
         .history-card {
             background: linear-gradient(135deg, #1b382b, #12261d);
             border-radius: 16px;
@@ -570,7 +570,7 @@
         <div class="navbar-content">
             <div class="nav-logo" onclick="scrollToSection('home')">
                 <i class="fa-solid fa-code" style="color: #2563eb;"></i>
-                <span>김영빈 Portfolio</span>
+                <span>김영빈의 도전과제 장식장</span>
             </div>
             <ul class="nav-menu">
                 <li>
@@ -602,7 +602,7 @@
             <!-- 1. 자기소개 카드 -->
             <div class="intro-card">
                 <div class="intro-greeting">
-                    안녕하세요, 김영빈입니다.
+                    안녕하세요, 저는 이런 사람입니다.
                 </div>
                 <div class="intro-main-text" id="intro-container">
                     <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
@@ -621,12 +621,12 @@
                     </ul>
                 </div>
                 <div class="intro-footer">
-                    <span>Developer Portfolio</span>
+                    <span></span>
                     <i class="fa-solid fa-code"></i>
                 </div>
             </div>
 
-            <!-- 2. 연락처 카드 (이력 디자인 그대로 유지) -->
+            <!-- 2. 연락처 카드 -->
             <div class="history-card">
                 <i class="fa-solid fa-magnifying-glass corner-icon corner-top-left"></i>
                 <i class="fa-solid fa-rocket corner-icon corner-top-right"></i>
@@ -641,7 +641,7 @@
                     <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">
                         <li style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #d1fae5;">
                             <i class="fa-solid fa-envelope" style="color: #6ee7b7; width: 16px; text-align: center;"></i>
-                            <span>Email: <a href="mailto:ebsinoah@gmail.com" style="color: #d1fae5; text-decoration: none;">ebsinoah@gmail.com</a></span>
+                            <span>Email: <a href="mailto:ebsinoah@gmail.com" style="color: #d1fae5; text-decoration: none;">kyb0809tg@naver.com</a></span>
                         </li>
                         <li style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #d1fae5;">
                             <i class="fa-brands fa-github" style="color: #6ee7b7; width: 16px; text-align: center;"></i>
@@ -649,7 +649,7 @@
                         </li>
                         <li style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #d1fae5;">
                             <i class="fa-solid fa-phone" style="color: #6ee7b7; width: 16px; text-align: center;"></i>
-                            <span>Phone: 010-XXXX-XXXX</span> <!-- 실제 전화번호로 변경하세요 -->
+                            <span>Phone: 010-8724-9851</span>
                         </li>
                     </ul>
                 </div>
@@ -668,7 +668,7 @@
                         <button onclick="scrollToSection('security')">
                             <div class="toc-item-left">
                                 <span class="toc-number">1</span>
-                                <span>Security</span>
+                                <span>Certifications</span>
                             </div>
                             <i class="fa-solid fa-shield-halved toc-icon"></i>
                         </button>
@@ -703,14 +703,28 @@
         <section class="content-section" id="security">
             <h2>
                 <i class="fa-solid fa-shield-halved" style="color: #3b82f6;"></i> 
-                1. Security & Certifications
+                1. Certifications
             </h2>
             <p style="margin-bottom: 24px; color: #64748b;">
-                소프트웨어 개발 및 정보보안, IT 관련 자격증과 성적 증명서입니다.
+                
             </p>
 
             <div class="cert-grid">
-                <!-- 1. 정보보안기사 -->
+                <!-- 1. 정보처리기사 (번호만 명시) -->
+                <div class="cert-card">
+                    <div class="cert-main">
+                        <div class="cert-icon">
+                            <i class="fa-solid fa-laptop-code" style="color: #2563eb;"></i>
+                        </div>
+                        <div class="cert-info">
+                            <h4>정보처리기사</h4>
+                            <div class="cert-number">No. [26202230510P]</div>
+                            <p>Human Resources Development Service of Korea (HRDK)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 정보보안기사 (번호만 명시) -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -724,7 +738,7 @@
                     </div>
                 </div>
 
-                <!-- 2. SQLD -->
+                <!-- 3. SQLD (번호만 명시) -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -738,7 +752,7 @@
                     </div>
                 </div>
 
-                <!-- 3. PCCE -->
+                <!-- 4. PCCE (링크 버튼만 생성) -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -746,7 +760,6 @@
                         </div>
                         <div class="cert-info">
                             <h4>PCCE</h4>
-                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Programmers Certified Coding Essential</p>
                         </div>
                     </div>
@@ -760,7 +773,7 @@
                     </div>
                 </div>
 
-                <!-- 4. PCCP -->
+                <!-- 5. PCCP (링크 버튼만 생성) -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -768,7 +781,6 @@
                         </div>
                         <div class="cert-info">
                             <h4>PCCP</h4>
-                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Programmers Certified Coding Professional</p>
                         </div>
                     </div>
@@ -782,7 +794,7 @@
                     </div>
                 </div>
 
-                <!-- 5. TOPCIT -->
+                <!-- 6. TOPCIT (링크 버튼만 생성) -->
                 <div class="cert-card">
                     <div class="cert-main">
                         <div class="cert-icon">
@@ -790,7 +802,6 @@
                         </div>
                         <div class="cert-info">
                             <h4>TOPCIT</h4>
-                            <div class="cert-number">No. [자격증 번호 입력]</div>
                             <p>Test of Practical Competency in IT</p>
                         </div>
                     </div>
@@ -898,7 +909,7 @@
         <section class="content-section" id="unity">
             <h2><i class="fa-solid fa-cube" style="color: #3b82f6;"></i> 3. Unity 게임 프로젝트</h2>
             <p style="margin-bottom: 20px;">
-                Unity로 제작한 프로젝트입니다. 아래 플레이 버튼을 눌러 Unity Play에서 직접 실행해보실 수 있습니다.
+                Unity 6 출시 기념 공모전 작품
             </p>
 
             <a href="https://play.unity.com/en/games/aecb6b0a-781a-4e4f-9ea6-d1a305e1dec2/6rma7lmy65w7j206ri0io2vnounscdquydsuzjrn7dsnbqg7jwe64uy" 
