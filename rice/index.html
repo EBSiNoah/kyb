@@ -94,27 +94,42 @@
     // (새로고침하면 초기화됩니다.)
     const sessionDataCache = {};
 
+    // 병합/캐시 키로 source_time 대신 _mergeKey를 사용합니다.
+    // 날짜가 있는 정상 데이터는 기존과 동일하게 "같은 날짜=같은 행"으로 묶이고,
+    // 날짜가 없는 오류 이벤트는 서로 다른 고유 키를 가지므로 소실되지 않고 각각 보존됩니다. (문서 4-2)
     function cacheStandardPoints(items) {
-      const byDate = {};
-      items.forEach(item => {
-        const d = item.source_time;
-        if (!d) return;
-        if (!byDate[d]) byDate[d] = [];
-        byDate[d].push(item);
+      const deduped = dedupeByMergeKey(items);
+      const byKey = {};
+      deduped.forEach(item => {
+        const k = item._mergeKey ?? item.source_time;
+        if (!k) return;
+        if (!byKey[k]) byKey[k] = [];
+        byKey[k].push(item);
       });
-      // 새로 들어온 날짜의 데이터로 해당 날짜의 캐시를 갱신(교체)합니다.
-      Object.keys(byDate).forEach(d => {
-        sessionDataCache[d] = byDate[d];
+      // 새로 들어온 키의 데이터로 해당 키의 캐시를 갱신(교체)합니다.
+      Object.keys(byKey).forEach(k => {
+        sessionDataCache[k] = byKey[k];
       });
     }
 
+    // 같은 _mergeKey를 가진 항목이 한 배치(newPoints) 안에 여러 개 있을 경우(예: 파일 여러 개를 한 번에 선택),
+    // 도착 순서상 마지막 항목만 남깁니다(같은 날짜 재조회 = 같은 행 갱신). 오류 이벤트는 각자 고유 키를 가지므로 영향 없습니다.
+    function dedupeByMergeKey(items) {
+      const map = new Map();
+      items.forEach(item => {
+        map.set(item._mergeKey ?? item.source_time ?? item, item);
+      });
+      return Array.from(map.values());
+    }
+
     // newPoints를 currentPoints(현재 화면에 표시 중인 데이터)에 병합하고 다시 그립니다.
-    // newPoints에 포함된 날짜는 기존 currentPoints의 같은 날짜 데이터를 덮어씁니다(교체).
+    // newPoints에 포함된 _mergeKey는 기존 currentPoints의 같은 키 데이터를 덮어씁니다(교체).
     function mergeIntoCurrentView(newPoints, titleLabel) {
-      const incomingDates = new Set(newPoints.map(p => p.source_time));
-      // 같은 날짜의 기존 데이터는 제거하고 새 데이터로 교체
-      currentPoints = currentPoints.filter(p => !incomingDates.has(p.source_time));
-      currentPoints.push(...newPoints);
+      const dedupedNewPoints = dedupeByMergeKey(newPoints);
+      const incomingKeys = new Set(dedupedNewPoints.map(p => p._mergeKey ?? p.source_time));
+      // 같은 키의 기존 데이터는 제거하고 새 데이터로 교체
+      currentPoints = currentPoints.filter(p => !incomingKeys.has(p._mergeKey ?? p.source_time));
+      currentPoints.push(...dedupedNewPoints);
       renderChart(currentPoints, titleLabel);
       renderDataTable(currentPoints);
     }
@@ -141,6 +156,84 @@
       return requiredFields.every(f => item[f] !== null && item[f] !== undefined);
     }
 
+    // [인수인계 문서 4-4] error_code / freshness 판정과 [문서 4-3] 직전 정상값 보존(preserve_last_good) 로직.
+    //
+    // 세션 동안 유지되는 "직전 정상값" 상태. 오류 발생 시 이 값을 그대로 이어서 보여줍니다.
+    let lastGoodValue = null;
+    let lastGoodTime = null; // 마지막 정상값이 관측된 날짜(YYYY-MM-DD)
+    let seqCounter = 0;      // 첨부/조회 처리 순서(도착 순서) 기록용
+
+    // 픽스처가 정의하는 5가지 오류 유형(문서 1-3). 이 유형에 한해서만 "직전 정상값 보존"을 적용합니다.
+    // (운영 데이터의 원인 미상 오류까지 직전 값으로 덮어쓰는 것은 이번 작업 범위를 벗어나므로 제외합니다. 문서 6 참고)
+    const FIXTURE_ERROR_CODES = new Set(['schema_error', 'auth', 'rate_limit', 'timeout', 'offline']);
+
+    const ERROR_LABELS = {
+      none: '정상',
+      schema_error: '비정상 (스키마 오류)',
+      auth: '비정상 (인증 실패)',
+      rate_limit: '비정상 (요청 제한)',
+      timeout: '비정상 (타임아웃)',
+      offline: '비정상 (오프라인)',
+      unknown: '비정상'
+    };
+
+    // transport.mode/status 및 필수 필드 결측 여부를 조합해 error_code를 판별합니다. (문서 4-4)
+    function determineErrorCode(item) {
+      if (!item._isFixture) {
+        // 운영 데이터(배열) 형식은 기존 정상/비정상 이진 판정을 그대로 재사용합니다.
+        return isNormalItem(item) ? 'none' : 'unknown';
+      }
+      const mode = item._transportMode;
+      if (mode === 'timeout') return 'timeout';
+      if (mode === 'offline') return 'offline';
+      if (item.status === 401 || item.status === '401') return 'auth';
+      if (item.status === 429 || item.status === '429') return 'rate_limit';
+
+      // 전송 자체는 성공(예: HTTP 200)했지만 표준 변환 결과 필수 필드가 비어있다면 스키마 오류로 판단합니다.
+      const requiredFields = ['status', 'stored_value', 'source_time', 'delay_ms', 'source_url'];
+      const hasAllFields = requiredFields.every(f => item[f] !== null && item[f] !== undefined);
+      return hasAllFields ? 'none' : 'schema_error';
+    }
+
+    // 오류 이벤트처럼 날짜 정보가 없는 항목의 정렬/표시 시각을 계산합니다.
+    // (문서 6 "확인 필요 사항": source_time이 없는 오류 이벤트는 virtual_now를 참고해
+    //  "직전 정상값이 관측된 날짜" 바로 뒤, 첨부(처리)된 순서대로 배치하는 것으로 확정했습니다.)
+    function displayTimeLabel(item) {
+      if (item.source_time) return item.source_time;
+      if (item.virtual_now) {
+        const cleaned = String(item.virtual_now).replace('T', ' ').replace(/\.\d+Z?$/, '');
+        return `${cleaned} (관측시각)`;
+      }
+      return '-';
+    }
+
+    // 표준화된 항목 배열을 "도착(처리) 순서" 그대로 훑으면서 error_code/freshness를 부여하고,
+    // 오류 항목은 stored_value를 직전 정상값으로 대체합니다. 정렬용 _sortTime도 함께 계산합니다.
+    function attachDerivedFields(items) {
+      items.forEach(item => {
+        item._seq = seqCounter++;
+        item.error_code = determineErrorCode(item);
+        item.freshness = item.error_code === 'none' ? 'fresh' : 'stale';
+
+        if (item.error_code === 'none') {
+          lastGoodValue = item.stored_value;
+          lastGoodTime = item.source_time;
+        } else if (FIXTURE_ERROR_CODES.has(item.error_code) && lastGoodValue !== null) {
+          item.stored_value = lastGoodValue; // 직전 정상값 보존 (문서 4-3)
+        }
+
+        const baseTime = item.source_time
+          ? new Date(item.source_time).getTime()
+          : (lastGoodTime ? new Date(lastGoodTime).getTime() : 0);
+        item._sortTime = baseTime + item._seq; // ms 단위 미세 오프셋으로 도착 순서를 유지
+      });
+      return items;
+    }
+
+    function getSortableTime(item) {
+      return item._sortTime ?? 0;
+    }
+
     function renderDataTable(items) {
       const container = document.getElementById('dataTableContainer');
       if (!items || items.length === 0) {
@@ -148,7 +241,7 @@
         return;
       }
 
-      const sorted = [...items].sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
+      const sorted = [...items].sort((a, b) => getSortableTime(a) - getSortableTime(b));
 
       const rows = sorted.map(item => {
         const dateOnly = toDateOnly(item.source_time);
@@ -156,14 +249,15 @@
         const urlCell = jsonPath
           ? `<a href="${escapeHtml(jsonPath)}" target="_blank" rel="noopener noreferrer">JSON 보기</a>`
           : '-';
-        const ok = isNormalItem(item);
+        const errorCode = item.error_code ?? (isNormalItem(item) ? 'none' : 'unknown');
+        const ok = errorCode === 'none';
         const dotClass = ok ? 'ok' : 'bad';
         const textClass = ok ? 'ok-text' : 'bad-text';
-        const label = ok ? '정상' : '비정상';
+        const label = ERROR_LABELS[errorCode] ?? '비정상';
         return `
           <tr>
             <td class="status-cell ${textClass}"><span class="status-dot ${dotClass}"></span>${label}</td>
-            <td>${escapeHtml(item.source_time)}</td>
+            <td>${escapeHtml(displayTimeLabel(item))}</td>
             <td>${escapeHtml(item.status)}</td>
             <td>${escapeHtml(item.stored_value)}</td>
             <td>${escapeHtml(item.delay_ms)}</td>
@@ -205,18 +299,41 @@
       return match ? match[0] : value;
     }
 
+    // [인수인계 문서 4-1, 4-2] 테스트 픽스처({payload, transport, expected}) 형태를 표준 항목으로 변환합니다.
+    //
+    // 기준 일(source_time) 결정 우선순위:
+    //   1) expected.record_date : 픽스처가 명시한 "논리적 날짜"(같은 날 재조회를 한 행으로 묶기 위한 값)
+    //   2) payload.source_time  : 실제 관측 시각(날짜만 추출)
+    //   3) expected.source_time : 위 두 값이 없을 때의 보조값
+    // 세 값이 모두 없으면(=스키마 오류/인증 실패/요청 제한/타임아웃/오프라인 등 오류 이벤트) source_time은 null이 되며,
+    // 이 경우 서로 다른 오류 이벤트끼리 같은 값(null)으로 묶여 덮어쓰지 않도록 virtual_now(관측 시각)를
+    // 기반으로 한 별도의 병합 키(_mergeKey)를 부여해 각각 독립된 레코드로 유지합니다. (문서 4-2 대응)
     function parseToStandardFormat(rawData) {
       let result = [];
-      if (rawData.payload || rawData.transport || rawData.expected) {
+      const isFixtureFormat = !!(rawData.payload || rawData.transport || rawData.expected);
+
+      if (isFixtureFormat) {
+        const dateKey = toDateOnly(
+          rawData.expected?.record_date ?? rawData.payload?.source_time ?? rawData.expected?.source_time ?? null
+        );
+        const fallbackId = rawData.virtual_now ?? rawData.payload?.fetched_at ?? null;
+
         result.push({
           status: rawData.transport?.status ?? null,
           stored_value: rawData.expected?.stored_value ?? null,
-          source_time: toDateOnly(rawData.payload?.source_time ?? rawData.expected?.source_time ?? null),
+          source_time: dateKey,
           delay_ms: rawData.transport?.delay_ms ?? null,
-          source_url: rawData.payload?.source_url ?? null
+          source_url: rawData.payload?.source_url ?? null,
+          virtual_now: rawData.virtual_now ?? null,
+          _isFixture: true,
+          _transportMode: rawData.transport?.mode ?? null,
+          _mergeKey: dateKey ?? `err:${fallbackId ?? (Math.random().toString(36).slice(2) + Date.now())}`
         });
       } else if (Array.isArray(rawData)) {
-        result = rawData.map(item => ({ ...item, source_time: toDateOnly(item.source_time) }));
+        result = rawData.map(item => {
+          const sourceTime = toDateOnly(item.source_time);
+          return { ...item, source_time: sourceTime, _isFixture: false, _mergeKey: sourceTime };
+        });
       }
       return result;
     }
@@ -260,7 +377,7 @@
           const res = await fetch(`./data/auction_${dateStr}.json`);
           if (res.ok) {
             const data = await res.json();
-            const items = parseToStandardFormat(data);
+            const items = attachDerivedFields(parseToStandardFormat(data));
             sessionDataCache[dateStr] = items; // 세션 동안 기억
             return items;
           } else {
@@ -321,20 +438,26 @@
         }
       }
 
+      attachDerivedFields(allPoints);
       cacheStandardPoints(allPoints);
       mergeIntoCurrentView(allPoints, "구간 조회 + 첨부파일 데이터");
-      const normalCount = currentPoints.filter(isNormalItem).length;
+      const normalCount = currentPoints.filter(item => (item.error_code ?? 'none') === 'none').length;
       const abnormalCount = currentPoints.length - normalCount;
       statusMsg.textContent = `첨부파일로부터 ${allPoints.length}건을 추가했습니다. (현재 그래프에 반영됨, 총 ${currentPoints.length}건 · 정상 ${normalCount}건 / 비정상 ${abnormalCount}건 · 날짜별로 세션 동안 기억됩니다)`;
     }
 
     function renderChart(standardDataList, titleLabel) {
-      // 그래프에는 "정상"으로 판정된 데이터만 반영합니다 (비정상 데이터는 표에서만 확인 가능)
-      const normalList = standardDataList.filter(isNormalItem);
-      normalList.sort((a, b) => new Date(a.source_time) - new Date(b.source_time));
+      // 그래프에는 "정상" 데이터와, preserve_last_good이 적용된 픽스처 오류 데이터(직전 정상값을 이어서 표시)를 함께 반영합니다.
+      // 운영 데이터의 원인 미상 비정상(error_code === 'unknown')은 기존과 동일하게 그래프에서 제외합니다. (문서 4-3, 6)
+      const chartList = standardDataList.filter(item => {
+        const code = item.error_code ?? (isNormalItem(item) ? 'none' : 'unknown');
+        return code === 'none' || FIXTURE_ERROR_CODES.has(code);
+      });
+      chartList.sort((a, b) => getSortableTime(a) - getSortableTime(b));
 
-      const labels = normalList.map(item => item.source_time ?? 'N/A');
-      const values = normalList.map(item => item.stored_value ?? 0);
+      const labels = chartList.map(item => item.source_time ?? displayTimeLabel(item));
+      const values = chartList.map(item => item.stored_value ?? null);
+      const isStale = chartList.map(item => (item.error_code ?? 'none') !== 'none');
 
       if (myChart) myChart.destroy();
 
@@ -349,7 +472,15 @@
             borderColor: '#007bff',
             backgroundColor: 'rgba(0, 123, 255, 0.15)',
             borderWidth: 2,
-            pointRadius: 4,
+            // 오류(직전 정상값 보존) 구간은 기존 상태 뱃지와 같은 색(#d9534f)의 마커로 구분합니다.
+            pointRadius: isStale.map(stale => stale ? 5 : 4),
+            pointStyle: isStale.map(stale => stale ? 'rectRot' : 'circle'),
+            pointBackgroundColor: isStale.map(stale => stale ? '#d9534f' : '#007bff'),
+            pointBorderColor: isStale.map(stale => stale ? '#d9534f' : '#007bff'),
+            segment: {
+              // 오류 구간과 맞닿은 선분은 점선으로 그려 정상 구간과 구분합니다.
+              borderDash: (segCtx) => (isStale[segCtx.p0DataIndex] || isStale[segCtx.p1DataIndex]) ? [6, 4] : undefined
+            },
             fill: true,
             tension: 0.1
           }]
