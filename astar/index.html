@@ -49,7 +49,7 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid var(
 </section>
 
 <section class="panel actions">
-<button id="run" class="primary">▶ 탐색 시작</button><button id="random">장애물 무작위 배치</button><button id="clear">장애물 지우기</button><button id="reset">전체 초기화</button>
+<button id="run" class="primary">▶ 탐색 시작</button><button id="random">장애물 무작위 배치</button><button id="maze">크루스칼 미로 생성</button><button id="prim-maze">무작위 프림 미로 생성</button><button id="clear">장애물 지우기</button><button id="reset">전체 초기화</button>
 </section>
 
 <section class="panel">
@@ -94,7 +94,7 @@ canvas.addEventListener('pointermove',e=>{if(drawing&&!busy&&(mode==='wall'||mod
 canvas.addEventListener('pointerup',()=>drawing=false);canvas.addEventListener('pointercancel',()=>drawing=false);
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(q=>q.classList.toggle('active',q===b));}));
 /* 휴리스틱은 목표까지의 추정 거리, stepCost는 실제 인접 칸 이동 비용을 각각 정의합니다. */
-function manhattanHeuristic(dx,dy){return dx+dy;}
+function manhattanHeuristic(dx,dy){return (Math.SQRT2/2)*(dx+dy);}
 // 현재 칸과 목표 칸을 잇는 직선의 길이(유클리드 거리)를 추정값으로 사용합니다.
 function euclideanHeuristic(dx,dy){return Math.hypot(dx,dy);}
 function gridStepCost(dx,dy){return dx!==0&&dy!==0?Math.SQRT2:1;}
@@ -102,7 +102,7 @@ function chebyshevHeuristic(dx,dy){return Math.max(dx,dy);}
 function octileHeuristic(dx,dy){const straight=Math.max(dx,dy),diagonal=Math.min(dx,dy);return straight+(Math.SQRT2-1)*diagonal;}
 function zeroHeuristic(){return 0;}
 const heuristicDefinitions={
- manhattan:{movement:'4',distance:manhattanHeuristic,stepCost:gridStepCost},
+ manhattan:{movement:'8',distance:manhattanHeuristic,stepCost:gridStepCost},
  euclidean:{movement:'8',distance:euclideanHeuristic,stepCost:gridStepCost},
  chebyshev:{movement:'8',distance:chebyshevHeuristic,stepCost:gridStepCost},
  octile:{movement:'8',distance:octileHeuristic,stepCost:gridStepCost},
@@ -136,9 +136,68 @@ function search(){
  const ms=performance.now()-t0;last={heuristic,expanded,cost,ms,found};
  $('expanded').textContent=expanded.toLocaleString();$('pathlen').textContent=cost===null?'—':Number(cost.toFixed(3)).toString();$('runtime').textContent=ms.toFixed(3);$('result').textContent=found?'경로 발견':'경로 없음';setStatus(found?'탐색 완료':'경로를 찾지 못함');draw();
 }
-function setBusy(v){busy=v;$('run').disabled=v;$('random').disabled=v;$('clear').disabled=v;$('reset').disabled=v;}
+function connectMazeEndpoint(point,roomCount){
+ const [px,py]=xy(point);let roomX=1,roomY=1,best=Infinity;
+ for(let y=0;y<roomCount;y++)for(let x=0;x<roomCount;x++){
+  const rx=1+2*x,ry=1+2*y,distance=Math.abs(px-rx)+Math.abs(py-ry);
+  if(distance<best){best=distance;roomX=rx;roomY=ry;}
+ }
+ let x=px,y=py;walls[idx(x,y)]=0;
+ while(x!==roomX){x+=Math.sign(roomX-x);walls[idx(x,y)]=0;}
+ while(y!==roomY){y+=Math.sign(roomY-y);walls[idx(x,y)]=0;}
+}
+function generateKruskalMaze(){
+ // 각 방 중심을 두 칸 간격으로 배치하고, 사이 벽을 크루스칼 알고리즘으로 연결합니다.
+ const roomCount=Math.floor((N-3)/2)+1,roomId=(x,y)=>y*roomCount+x;
+ const edges=[];
+ for(let y=0;y<roomCount;y++)for(let x=0;x<roomCount;x++){
+  if(x+1<roomCount)edges.push({x,y,nx:x+1,ny:y});
+  if(y+1<roomCount)edges.push({x,y,nx:x,ny:y+1});
+ }
+ for(let i=edges.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[edges[i],edges[j]]=[edges[j],edges[i]];}
+ const parent=Int32Array.from({length:roomCount*roomCount},(_,i)=>i),rank=new Uint8Array(parent.length);
+ function find(x){while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;}
+ function unite(a,b){let ra=find(a),rb=find(b);if(ra===rb)return false;if(rank[ra]<rank[rb])[ra,rb]=[rb,ra];parent[rb]=ra;if(rank[ra]===rank[rb])rank[ra]++;return true;}
+ walls.fill(1);
+ for(let y=0;y<roomCount;y++)for(let x=0;x<roomCount;x++)walls[idx(1+2*x,1+2*y)]=0;
+ for(const edge of edges){if(!unite(roomId(edge.x,edge.y),roomId(edge.nx,edge.ny)))continue;
+  const x1=1+2*edge.x,y1=1+2*edge.y,x2=1+2*edge.nx,y2=1+2*edge.ny;
+  walls[idx((x1+x2)/2,(y1+y2)/2)]=0;
+ }
+ // 출발점과 도착점을 기존 위치에 두고, 각각 가장 가까운 미로 방까지 통로를 엽니다.
+ connectMazeEndpoint(start,roomCount);connectMazeEndpoint(goal,roomCount);
+ clearSearch();draw();setStatus('크루스칼 알고리즘으로 미로를 생성했습니다');
+}
+function generatePrimMaze(){
+ // 방문 영역의 경계 벽을 무작위로 선택해, 미방문 방까지 미로를 확장합니다.
+ const roomCount=Math.floor((N-3)/2)+1,roomId=(x,y)=>y*roomCount+x;
+ const visited=new Uint8Array(roomCount*roomCount),frontier=[];
+ walls.fill(1);
+ for(let y=0;y<roomCount;y++)for(let x=0;x<roomCount;x++)walls[idx(1+2*x,1+2*y)]=0;
+ function addFrontier(x,y){
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const nx=x+dx,ny=y+dy;
+   if(nx>=0&&nx<roomCount&&ny>=0&&ny<roomCount&&!visited[roomId(nx,ny)])frontier.push({x,y,nx,ny});
+  }
+ }
+ const startX=Math.floor(Math.random()*roomCount),startY=Math.floor(Math.random()*roomCount);
+ visited[roomId(startX,startY)]=1;addFrontier(startX,startY);
+ while(frontier.length){
+  const pick=Math.floor(Math.random()*frontier.length),edge=frontier[pick];
+  frontier[pick]=frontier[frontier.length-1];frontier.pop();
+  const nextId=roomId(edge.nx,edge.ny);if(visited[nextId])continue;
+  const x1=1+2*edge.x,y1=1+2*edge.y,x2=1+2*edge.nx,y2=1+2*edge.ny;
+  walls[idx((x1+x2)/2,(y1+y2)/2)]=0;visited[nextId]=1;addFrontier(edge.nx,edge.ny);
+ }
+ // 마커 위치는 유지하면서 각각 미로 통로와 연결해 탐색에 사용할 수 있게 합니다.
+ connectMazeEndpoint(start,roomCount);connectMazeEndpoint(goal,roomCount);
+ clearSearch();draw();setStatus('무작위 프림 알고리즘으로 미로를 생성했습니다');
+}
+function setBusy(v){busy=v;$('run').disabled=v;$('random').disabled=v;$('maze').disabled=v;$('prim-maze').disabled=v;$('clear').disabled=v;$('reset').disabled=v;}
 $('run').addEventListener('click',()=>{if(busy)return;setBusy(true);setStatus('탐색 중…');setTimeout(()=>{try{search()}finally{setBusy(false)}},15);});
 $('random').addEventListener('click',()=>{if(busy)return;walls.fill(0);const p=Number($('density').value)/100;for(let i=0;i<TOTAL;i++)if(i!==start&&i!==goal&&Math.random()<p)walls[i]=1;clearSearch();draw();setStatus('무작위 장애물 배치 완료');});
+$('maze').addEventListener('click',()=>{if(busy)return;generateKruskalMaze();});
+$('prim-maze').addEventListener('click',()=>{if(busy)return;generatePrimMaze();});
 $('clear').addEventListener('click',()=>{walls.fill(0);clearSearch();draw();setStatus('장애물을 지웠습니다');});
 $('reset').addEventListener('click',()=>{walls.fill(0);start=31;goal=868;mode='start';document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='start'));clearSearch();draw();setStatus('전체 초기화 완료');});
 $('record').addEventListener('click',()=>{if(!last){setStatus('먼저 탐색을 실행하세요');return;}records.push({...last,number:records.length+1});renderRecords();});
