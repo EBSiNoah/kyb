@@ -23,22 +23,16 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid var(
 <body>
 <main>
 <h1>A* 알고리즘 실험실</h1>
-<p class="intro">30 × 30 격자에서 출발점·도착점·장애물을 설정하고, 5가지 휴리스틱 함수의 탐색 결과를 비교합니다.</p>
+<p class="intro">30 × 30 격자에서 출발점·도착점·장애물을 설정하고, 5가지 휴리스틱의 탐색 결과를 확인합니다.</p>
 
 <section class="panel controls">
 <label>휴리스틱 함수
 <select id="heuristic">
-<option value="manhattan">맨해튼 거리 (8방향에서는 √2/2 보정)</option>
+<option value="manhattan">맨해튼 거리</option>
 <option value="euclidean">유클리드 거리</option>
 <option value="chebyshev">체비쇼프 거리</option>
 <option value="octile">옥타일 거리</option>
 <option value="zero">0 (다익스트라 기준)</option>
-</select>
-</label>
-<label>이동 규칙
-<select id="movement">
-<option value="4">상하좌우 4방향</option>
-<option value="8" selected>대각선 포함 8방향</option>
 </select>
 </label>
 <label>무작위 장애물 밀도
@@ -51,7 +45,7 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid var(
 <div class="tools" style="margin:9px 0">
 <button data-mode="start" class="active">🟢 출발점</button><button data-mode="goal">🔴 도착점</button><button data-mode="wall">⬛ 장애물</button><button data-mode="erase">지우개</button>
 </div>
-<p class="muted">격자를 클릭하거나 드래그해 편집하세요. 출발점과 도착점은 각각 하나씩 유지됩니다. 비교 실험에서는 같은 지도와 이동 규칙을 유지하세요.</p>
+<p class="muted">격자를 클릭하거나 드래그해 편집하세요. 출발점과 도착점은 각각 하나씩 유지됩니다.</p>
 </section>
 
 <section class="panel actions">
@@ -75,9 +69,8 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1;border:1px solid var(
 <section class="panel">
 <strong>실험 데이터</strong><p class="muted">탐색 결과를 기록하고 CSV로 내보내 스프레드시트에서 분석할 수 있습니다.</p>
 <div class="actions"><button id="record">현재 결과 기록</button><button id="csv">CSV 내보내기</button><button id="clearrecords">기록 지우기</button></div>
-<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>번호</th><th>휴리스틱</th><th>이동 규칙</th><th class="num">확장 노드</th><th class="num">경로 비용</th><th class="num">시간(ms)</th><th>결과</th></tr></thead><tbody id="records"><tr><td colspan="7" class="muted">기록된 실험이 없습니다.</td></tr></tbody></table></div>
+<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>번호</th><th>휴리스틱</th><th class="num">확장 노드</th><th class="num">경로 비용</th><th class="num">시간(ms)</th><th>결과</th></tr></thead><tbody id="records"><tr><td colspan="6" class="muted">기록된 실험이 없습니다.</td></tr></tbody></table></div>
 </section>
-<p class="muted">참고: 모든 휴리스틱은 이동 규칙에 맞춰 허용 가능(과대평가 없음)하고 일관되게 구성되어 최적 경로를 보장합니다. 4방향에서는 맨해튼이 가장 정확하고, 8방향에서는 옥타일이 가장 정확합니다. 유클리드·체비쇼프는 두 규칙 모두에서 최적이지만 정보량이 적어 더 많은 노드를 확장합니다. 8방향 맨해튼은 대각 비용 √2에 맞춰 (√2/2)배로 보정합니다. 실행 시간은 환경 영향을 받으므로 여러 지도에서 반복 측정하세요.</p>
 </main>
 <script>
 (() => {
@@ -100,23 +93,24 @@ canvas.addEventListener('pointerdown',e=>{if(busy)return;drawing=true;canvas.set
 canvas.addEventListener('pointermove',e=>{if(drawing&&!busy&&(mode==='wall'||mode==='erase'))paint(cellAt(e));});
 canvas.addEventListener('pointerup',()=>drawing=false);canvas.addEventListener('pointercancel',()=>drawing=false);
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(q=>q.classList.toggle('active',q===b));}));
-/* 휴리스틱 팩토리: 탐색 시작 시 한 번만 생성 (DOM 접근 제거, 분기 비용 균등화)
-   허용성(h <= 실제 최단비용)과 일관성(h(n) <= c(n,n') + h(n'))을 이동 규칙별로 보장한다.
-   - 4방향(직선 1):      맨해튼 = dx+dy (정확), 나머지는 이보다 작거나 같아 허용 가능
-   - 8방향(직선 1, 대각 √2): 옥타일 = max+(√2-1)·min (정확).
-     원래 맨해튼(dx+dy)은 대각 이동 1회(비용 √2)에 값이 2 줄어 과대평가이므로
-     (√2/2) 배로 보정한다. 유클리드·체비쇼프는 옥타일보다 작아 그대로 허용 가능. */
-function makeHeuristic(kind,goalIdx,diagonal){
- const gx=goalIdx%N,gy=(goalIdx/N)|0,S=Math.SQRT2-1,M=diagonal?Math.SQRT2/2:1;
- let f;
- switch(kind){
-  case 'manhattan':f=(dx,dy)=>M*(dx+dy);break;
-  case 'euclidean':f=(dx,dy)=>Math.sqrt(dx*dx+dy*dy);break;
-  case 'chebyshev':f=(dx,dy)=>Math.max(dx,dy);break;
-  case 'octile':f=(dx,dy)=>Math.max(dx,dy)+S*Math.min(dx,dy);break;
-  default:f=()=>0;
- }
- return i=>f(Math.abs((i%N)-gx),Math.abs(((i/N)|0)-gy));
+/* 휴리스틱은 목표까지의 추정 거리, stepCost는 실제 인접 칸 이동 비용을 각각 정의합니다. */
+function manhattanHeuristic(dx,dy){return dx+dy;}
+// 현재 칸과 목표 칸을 잇는 직선의 길이(유클리드 거리)를 추정값으로 사용합니다.
+function euclideanHeuristic(dx,dy){return Math.hypot(dx,dy);}
+function gridStepCost(dx,dy){return dx!==0&&dy!==0?Math.SQRT2:1;}
+function chebyshevHeuristic(dx,dy){return Math.max(dx,dy);}
+function octileHeuristic(dx,dy){const straight=Math.max(dx,dy),diagonal=Math.min(dx,dy);return straight+(Math.SQRT2-1)*diagonal;}
+function zeroHeuristic(){return 0;}
+const heuristicDefinitions={
+ manhattan:{movement:'4',distance:manhattanHeuristic,stepCost:gridStepCost},
+ euclidean:{movement:'8',distance:euclideanHeuristic,stepCost:gridStepCost},
+ chebyshev:{movement:'8',distance:chebyshevHeuristic,stepCost:gridStepCost},
+ octile:{movement:'8',distance:octileHeuristic,stepCost:gridStepCost},
+ zero:{movement:'8',distance:zeroHeuristic,stepCost:gridStepCost}
+};
+function makeHeuristic(kind,goalIdx){
+ const definition=heuristicDefinitions[kind],gx=goalIdx%N,gy=(goalIdx/N)|0;
+ return i=>definition.distance(Math.abs((i%N)-gx),Math.abs(((i/N)|0)-gy));
 }
 class Heap{
  constructor(){this.a=[]}
@@ -127,19 +121,19 @@ class Heap{
 function search(){
  clearSearch();const t0=performance.now(),g=new Float64Array(TOTAL);g.fill(Infinity);
  const parent=new Int32Array(TOTAL);parent.fill(-1);const closed=new Uint8Array(TOTAL),heap=new Heap();
- const diagonal=$('movement').value==='8',h=makeHeuristic($('heuristic').value,goal,diagonal);g[start]=0;heap.push({i:start,g:0,f:h(start)});
+ const heuristic=$('heuristic').value,definition=heuristicDefinitions[heuristic],diagonal=definition.movement==='8',h=makeHeuristic(heuristic,goal);g[start]=0;heap.push({i:start,g:0,f:h(start)});
  let expanded=0,found=false;
- const dirs=diagonal?[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,Math.SQRT2],[1,-1,Math.SQRT2],[-1,1,Math.SQRT2],[-1,-1,Math.SQRT2]]:[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1]];
+ const dirs=diagonal?[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]:[[1,0],[-1,0],[0,1],[0,-1]];
  while(heap.size){const cur=heap.pop(),u=cur.i;if(closed[u]||cur.g!==g[u])continue;if(u===goal){found=true;break;}closed[u]=1;explored[u]=1;expanded++;
   const [x,y]=xy(u);
-  for(const [dx,dy,cost] of dirs){const nx=x+dx,ny=y+dy;if(nx<0||nx>=N||ny<0||ny>=N)continue;const v=idx(nx,ny);if(walls[v]||closed[v])continue;
+  for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(nx<0||nx>=N||ny<0||ny>=N)continue;const v=idx(nx,ny);if(walls[v]||closed[v])continue;
    // 대각선 이동은 장애물 모서리를 통과하지 않도록, 양 옆 인접 칸이 모두 비어 있어야 한다.
    if(dx!==0&&dy!==0&&(walls[idx(x+dx,y)]||walls[idx(x,y+dy)]))continue;
-   const ng=g[u]+cost;if(ng<g[v]){g[v]=ng;parent[v]=u;heap.push({i:v,g:ng,f:ng+h(v)});}
+   const ng=g[u]+definition.stepCost(dx,dy);if(ng<g[v]){g[v]=ng;parent[v]=u;heap.push({i:v,g:ng,f:ng+h(v)});}
   }
  }
  let cost=null;if(found){let p=goal,count=0;while(p!==-1&&p!==start&&count<=TOTAL){path[p]=1;p=parent[p];count++;}if(p===start){cost=g[goal];path[start]=0;}}
- const ms=performance.now()-t0;last={heuristic:$('heuristic').value,movement:diagonal?'8방향':'4방향',expanded,cost,ms,found};
+ const ms=performance.now()-t0;last={heuristic,expanded,cost,ms,found};
  $('expanded').textContent=expanded.toLocaleString();$('pathlen').textContent=cost===null?'—':Number(cost.toFixed(3)).toString();$('runtime').textContent=ms.toFixed(3);$('result').textContent=found?'경로 발견':'경로 없음';setStatus(found?'탐색 완료':'경로를 찾지 못함');draw();
 }
 function setBusy(v){busy=v;$('run').disabled=v;$('random').disabled=v;$('clear').disabled=v;$('reset').disabled=v;}
@@ -148,11 +142,11 @@ $('random').addEventListener('click',()=>{if(busy)return;walls.fill(0);const p=N
 $('clear').addEventListener('click',()=>{walls.fill(0);clearSearch();draw();setStatus('장애물을 지웠습니다');});
 $('reset').addEventListener('click',()=>{walls.fill(0);start=31;goal=868;mode='start';document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='start'));clearSearch();draw();setStatus('전체 초기화 완료');});
 $('record').addEventListener('click',()=>{if(!last){setStatus('먼저 탐색을 실행하세요');return;}records.push({...last,number:records.length+1});renderRecords();});
-function renderRecords(){const body=$('records');body.replaceChildren();if(!records.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.className='muted';td.textContent='기록된 실험이 없습니다.';tr.append(td);body.append(tr);return;}
- records.forEach(r=>{const tr=document.createElement('tr');[r.number,labels[r.heuristic],r.movement,r.expanded,r.cost===null?'실패':Number(r.cost.toFixed(3)),r.ms.toFixed(3),r.found?'성공':'실패'].forEach((v,j)=>{const td=document.createElement('td');td.textContent=v;if(j>=3&&j<=5)td.className='num';tr.append(td)});body.append(tr);});
+function renderRecords(){const body=$('records');body.replaceChildren();if(!records.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.className='muted';td.textContent='기록된 실험이 없습니다.';tr.append(td);body.append(tr);return;}
+ records.forEach(r=>{const tr=document.createElement('tr');[r.number,labels[r.heuristic],r.expanded,r.cost===null?'실패':Number(r.cost.toFixed(3)),r.ms.toFixed(3),r.found?'성공':'실패'].forEach((v,j)=>{const td=document.createElement('td');td.textContent=v;if(j>=2&&j<=4)td.className='num';tr.append(td)});body.append(tr);});
 }
 $('clearrecords').addEventListener('click',()=>{records=[];renderRecords();});
-$('csv').addEventListener('click',()=>{if(!records.length){setStatus('내보낼 기록이 없습니다');return;}const rows=[['번호','휴리스틱','이동 규칙','확장 노드','경로 비용','실행 시간(ms)','경로 발견'],...records.map(r=>[r.number,labels[r.heuristic],r.movement,r.expanded,r.cost??'',r.ms.toFixed(4),r.found?'예':'아니오'])];const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='astar-experiment.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('csv').addEventListener('click',()=>{if(!records.length){setStatus('내보낼 기록이 없습니다');return;}const rows=[['번호','휴리스틱','확장 노드','경로 비용','실행 시간(ms)','경로 발견'],...records.map(r=>[r.number,labels[r.heuristic],r.expanded,r.cost??'',r.ms.toFixed(4),r.found?'예':'아니오'])];const csv='\uFEFF'+rows.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='astar-experiment.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 draw();
 })();
 </script>
