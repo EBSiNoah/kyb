@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF 보기</title>
+  <title>파일 보기</title>
   <style>
     * {
       box-sizing: border-box;
@@ -27,11 +27,10 @@
       flex: 1 1 100%;
       min-width: 0;
       border: 5px solid #000;
-      transition: flex-basis 0.2s ease;
     }
 
     .layout.is-viewing .sidebar {
-      flex: 0 0 50%;
+      flex: 0 0 var(--sidebar-size, 50%);
     }
 
     .button-list {
@@ -43,7 +42,7 @@
       gap: 10px;
     }
 
-    .pdf-button {
+    .file-button {
       width: 125px;
       height: 29px;
       padding: 0;
@@ -52,14 +51,48 @@
       cursor: pointer;
     }
 
-    .pdf-button:hover,
-    .pdf-button:focus-visible {
+    .file-button:hover,
+    .file-button:focus-visible {
       background: #e8e8e8;
+    }
+
+    .splitter {
+      position: relative;
+      z-index: 1;
+      flex: 0 0 10px;
+      border-right: 2px solid #000;
+      border-left: 2px solid #000;
+      background: #dedede;
+      cursor: col-resize;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .splitter::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 2px;
+      height: 40px;
+      background: #666;
+      content: "";
+      transform: translate(-50%, -50%);
+    }
+
+    .splitter:hover,
+    .splitter:focus-visible,
+    .layout.is-dragging .splitter {
+      background: #bdbdbd;
+      outline: none;
+    }
+
+    .splitter[hidden] {
+      display: none;
     }
 
     .viewer {
       display: flex;
-      flex: 1 1 50%;
+      flex: 1 1 auto;
       flex-direction: column;
       min-width: 0;
       height: 100%;
@@ -110,11 +143,26 @@
       }
 
       .layout.is-viewing .sidebar {
-        flex: 0 0 35%;
+        flex: 0 0 var(--sidebar-size, 35%);
+      }
+
+      .splitter {
+        flex: 0 0 10px;
+        border: 0;
+        border-top: 2px solid #000;
+        border-bottom: 2px solid #000;
+        cursor: row-resize;
+      }
+
+      .splitter::after {
+        width: 40px;
+        height: 2px;
       }
 
       .viewer {
-        flex: 1 1 65%;
+        flex: 1 1 auto;
+        min-height: 0;
+        border-top: 0;
         border-left: 5px solid #000;
       }
 
@@ -129,47 +177,145 @@
   <main class="layout" id="layout">
     <aside class="sidebar">
       <div class="button-list">
-        <button class="pdf-button" type="button"
-                data-pdf="pcce_certification.pdf" aria-label="PCCE 자격증 PDF 열기"
+        <button class="file-button" type="button"
+                data-file="pcce_certification.pdf" aria-label="PCCE 자격증 PDF 열기"
                 title="PCCE 자격증 PDF 열기"></button>
-        <button class="pdf-button" type="button"
-                data-pdf="pccp.pdf" aria-label="PCCP PDF 열기"
+        <button class="file-button" type="button"
+                data-file="pccp.pdf" aria-label="PCCP PDF 열기"
                 title="PCCP PDF 열기"></button>
-        <button class="pdf-button" type="button"
-                data-pdf="topcit.pdf" aria-label="TOPCIT PDF 열기"
+        <button class="file-button" type="button"
+                data-file="topcit.pdf" aria-label="TOPCIT PDF 열기"
                 title="TOPCIT PDF 열기"></button>
+        <button class="file-button" type="button"
+                data-file="Dunstaurant.html" aria-label="같은 폴더의 index.html 열기"
+                title="같은 폴더의 index.html 열기"></button>
       </div>
     </aside>
 
-    <section class="viewer" id="viewer" aria-label="PDF 미리보기" hidden>
+    <div class="splitter" id="splitter" role="separator" tabindex="0"
+         aria-label="패널 크기 조절" aria-controls="viewer" aria-orientation="vertical"
+         aria-valuemin="20" aria-valuemax="80" aria-valuenow="50" hidden></div>
+
+    <section class="viewer" id="viewer" aria-label="파일 미리보기" hidden>
       <div class="viewer-header">
-        <span>PDF 미리보기</span>
+        <span id="viewerHeading">파일 미리보기</span>
         <button class="collapse-button" id="collapseButton" type="button">접기</button>
       </div>
-      <iframe id="pdfViewer" title="선택한 PDF"></iframe>
+      <iframe id="fileViewer" title="선택한 파일"></iframe>
     </section>
   </main>
 
   <script>
     const layout = document.getElementById("layout");
     const viewer = document.getElementById("viewer");
-    const pdfViewer = document.getElementById("pdfViewer");
+    const splitter = document.getElementById("splitter");
+    const fileViewer = document.getElementById("fileViewer");
+    const viewerHeading = document.getElementById("viewerHeading");
     const collapseButton = document.getElementById("collapseButton");
+    const mobileLayout = window.matchMedia("(max-width: 600px)");
 
-    function openPdf(filePath) {
-      pdfViewer.src = filePath;
-      viewer.hidden = false;
-      layout.classList.add("is-viewing");
+    function getResizeRange() {
+      const isMobile = mobileLayout.matches;
+      const dimension = isMobile ? layout.clientHeight : layout.clientWidth;
+      const splitterSize = isMobile ? splitter.offsetHeight : splitter.offsetWidth;
+      const sidebarMinimum = isMobile ? 120 : 180;
+      const viewerMinimum = isMobile ? 140 : 220;
+      const available = Math.max(1, dimension - splitterSize);
+      const min = Math.min(45, sidebarMinimum / dimension * 100);
+      const max = Math.max(min, Math.min(80, (dimension - splitterSize - viewerMinimum) / dimension * 100));
+
+      return { min, max, isMobile };
     }
 
-    document.querySelectorAll(".pdf-button").forEach((button) => {
+    function setSidebarSize(percent) {
+      const range = getResizeRange();
+      const size = Math.max(range.min, Math.min(range.max, percent));
+      layout.style.setProperty("--sidebar-size", `${size}%`);
+      splitter.setAttribute("aria-valuemin", String(Math.round(range.min)));
+      splitter.setAttribute("aria-valuemax", String(Math.round(range.max)));
+      splitter.setAttribute("aria-valuenow", String(Math.round(size)));
+      splitter.setAttribute("aria-orientation", range.isMobile ? "horizontal" : "vertical");
+    }
+
+    function resizeFromPointer(event) {
+      const bounds = layout.getBoundingClientRect();
+      const range = getResizeRange();
+      const position = range.isMobile ? event.clientY - bounds.top : event.clientX - bounds.left;
+      const dimension = range.isMobile ? bounds.height : bounds.width;
+      setSidebarSize(position / dimension * 100);
+    }
+
+    function openFile(filePath) {
+      const fileName = filePath.split("/").pop();
+      const isHtml = /\.html?$/i.test(fileName);
+
+      fileViewer.src = filePath;
+      fileViewer.title = `${fileName} 미리보기`;
+      viewerHeading.textContent = `${fileName} ${isHtml ? "HTML" : "PDF"} 미리보기`;
+      viewer.hidden = false;
+      splitter.hidden = false;
+      layout.classList.add("is-viewing");
+      setSidebarSize(parseFloat(layout.style.getPropertyValue("--sidebar-size")) || (mobileLayout.matches ? 35 : 50));
+    }
+
+    document.querySelectorAll(".file-button").forEach((button) => {
       button.addEventListener("click", () => {
-        openPdf(button.dataset.pdf);
+        openFile(button.dataset.file);
       });
+    });
+
+    splitter.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      splitter.setPointerCapture(event.pointerId);
+      layout.classList.add("is-dragging");
+      resizeFromPointer(event);
+    });
+
+    splitter.addEventListener("pointermove", (event) => {
+      if (splitter.hasPointerCapture(event.pointerId)) {
+        resizeFromPointer(event);
+      }
+    });
+
+    function stopDragging(event) {
+      if (splitter.hasPointerCapture(event.pointerId)) {
+        splitter.releasePointerCapture(event.pointerId);
+      }
+      layout.classList.remove("is-dragging");
+    }
+
+    splitter.addEventListener("pointerup", stopDragging);
+    splitter.addEventListener("pointercancel", stopDragging);
+    splitter.addEventListener("lostpointercapture", () => layout.classList.remove("is-dragging"));
+
+    splitter.addEventListener("keydown", (event) => {
+      const { isMobile } = getResizeRange();
+      const decreaseKey = isMobile ? "ArrowUp" : "ArrowLeft";
+      const increaseKey = isMobile ? "ArrowDown" : "ArrowRight";
+      const currentSize = parseFloat(layout.style.getPropertyValue("--sidebar-size")) || (isMobile ? 35 : 50);
+
+      if (event.key === decreaseKey || event.key === increaseKey) {
+        event.preventDefault();
+        setSidebarSize(currentSize + (event.key === increaseKey ? 2 : -2));
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        setSidebarSize(getResizeRange().min);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        setSidebarSize(getResizeRange().max);
+      }
+    });
+
+    mobileLayout.addEventListener("change", () => {
+      if (!viewer.hidden) {
+        setSidebarSize(parseFloat(layout.style.getPropertyValue("--sidebar-size")) || (mobileLayout.matches ? 35 : 50));
+      }
     });
 
     collapseButton.addEventListener("click", () => {
       viewer.hidden = true;
+      splitter.hidden = true;
       layout.classList.remove("is-viewing");
     });
   </script>
