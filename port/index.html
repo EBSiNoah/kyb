@@ -26,7 +26,6 @@
       position: relative;
       flex: 1 1 100%;
       min-width: 0;
-      border: 5px solid #000;
     }
 
     .layout.is-viewing .sidebar {
@@ -38,6 +37,7 @@
       left: 26px;
       bottom: 30px;
       display: flex;
+      width: min(720px, calc(100% - 52px));
       max-height: calc(100% - 60px);
       flex-direction: column;
       gap: 12px;
@@ -46,6 +46,8 @@
 
     .button-group {
       display: flex;
+      width: 100%;
+      min-width: 0;
       flex-direction: column;
       gap: 8px;
       padding: 10px;
@@ -58,21 +60,18 @@
       font: 700 15px/1.2 sans-serif;
     }
 
-    .button-group__buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
+    .button-group__buttons,
     .credential-list {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
       gap: 8px;
+      min-width: 0;
     }
 
     .credential-entry {
       display: flex;
-      width: 230px;
+      width: 100%;
+      min-width: 0;
       flex-direction: column;
       gap: 5px;
       padding: 8px;
@@ -93,7 +92,9 @@
 
     .file-button {
       display: flex;
-      width: 230px;
+      width: 100%;
+      max-width: 320px;
+      min-width: 0;
       height: 66px;
       flex-direction: column;
       align-items: stretch;
@@ -107,11 +108,13 @@
     }
 
     .file-button__name {
+      overflow-wrap: anywhere;
       font: 700 17px/1.2 sans-serif;
     }
 
     .file-button__action {
       align-self: flex-end;
+      white-space: nowrap;
       font: 12px/1 sans-serif;
     }
 
@@ -238,6 +241,7 @@
       .button-list {
         left: 12px;
         bottom: 12px;
+        width: calc(100% - 24px);
         max-height: calc(100% - 24px);
         gap: 8px;
       }
@@ -256,11 +260,6 @@
         gap: 6px;
       }
 
-      .credential-entry,
-      .file-button {
-        width: min(230px, calc(100vw - 40px));
-      }
-
       .credential-entry {
         padding: 7px;
       }
@@ -275,6 +274,7 @@
 
       .file-button {
         height: 58px;
+        padding: 6px 8px;
       }
 
       .file-button__name {
@@ -297,15 +297,15 @@
             <!-- 실제 인증 번호가 아직 제공되지 않아 안내 문구를 둡니다. 이 HTML의 안내 문구를 실제 번호로 직접 바꾸세요. -->
             <div class="credential-entry">
               <span class="credential-entry__label">정보처리기사</span>
-              <p class="credential-entry__number">cert</p>
+              <p class="credential-entry__number">인증 번호: 여기에 직접 입력</p>
             </div>
             <div class="credential-entry">
               <span class="credential-entry__label">정보보안기사</span>
-              <p class="credential-entry__number">cert</p>
+              <p class="credential-entry__number">인증 번호: 여기에 직접 입력</p>
             </div>
             <div class="credential-entry">
               <span class="credential-entry__label">SQLD</span>
-              <p class="credential-entry__number">cert</p>
+              <p class="credential-entry__number">인증 번호: 여기에 직접 입력</p>
             </div>
           </div>
           <div class="button-group__buttons">
