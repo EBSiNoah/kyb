@@ -43,17 +43,37 @@
     }
 
     .file-button {
-      width: 125px;
-      height: 29px;
-      padding: 0;
-      border: 5px solid #000;
+      display: flex;
+      width: 230px;
+      height: 66px;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border: 3px solid #000;
       background: #fff;
+      color: #000;
+      text-align: left;
       cursor: pointer;
+    }
+
+    .file-button__name {
+      font: 700 17px/1.2 sans-serif;
+    }
+
+    .file-button__action {
+      align-self: flex-end;
+      font: 12px/1 sans-serif;
     }
 
     .file-button:hover,
     .file-button:focus-visible {
       background: #e8e8e8;
+    }
+
+    .file-button:focus-visible {
+      outline: 3px solid #555;
+      outline-offset: 2px;
     }
 
     .splitter {
@@ -169,6 +189,20 @@
       .button-list {
         left: 12px;
         bottom: 12px;
+        gap: 7px;
+      }
+
+      .file-button {
+        width: min(230px, calc(100vw - 40px));
+        height: 58px;
+      }
+
+      .file-button__name {
+        font-size: 15px;
+      }
+
+      .file-button__action {
+        font-size: 11px;
       }
     }
   </style>
@@ -179,16 +213,28 @@
       <div class="button-list">
         <button class="file-button" type="button"
                 data-file="pcce_certification.pdf" aria-label="PCCE 자격증 PDF 열기"
-                title="PCCE 자격증 PDF 열기"></button>
+                title="PCCE 자격증 PDF 열기">
+          <span class="file-button__name">pcce</span>
+          <span class="file-button__action" aria-hidden="true">▶ 펼쳐보기</span>
+        </button>
         <button class="file-button" type="button"
                 data-file="pccp.pdf" aria-label="PCCP PDF 열기"
-                title="PCCP PDF 열기"></button>
+                title="PCCP PDF 열기">
+          <span class="file-button__name">pccp</span>
+          <span class="file-button__action" aria-hidden="true">▶ 펼쳐보기</span>
+        </button>
         <button class="file-button" type="button"
                 data-file="topcit.pdf" aria-label="TOPCIT PDF 열기"
-                title="TOPCIT PDF 열기"></button>
+                title="TOPCIT PDF 열기">
+          <span class="file-button__name">topcit</span>
+          <span class="file-button__action" aria-hidden="true">▶ 펼쳐보기</span>
+        </button>
         <button class="file-button" type="button"
-                data-file="Dunstaurant.html" aria-label="같은 폴더의 index.html 열기"
-                title="같은 폴더의 index.html 열기"></button>
+                data-file="Dunstaurant.html" aria-label="Dunstaurant.html 열기"
+                title="Dunstaurant.html 열기">
+          <span class="file-button__name">Dunstaurant</span>
+          <span class="file-button__action" aria-hidden="true">▶ 펼쳐보기</span>
+        </button>
       </div>
     </aside>
 
