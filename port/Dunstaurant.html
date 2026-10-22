@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="던전 탐험과 식당 경영이 결합된 게임 Dunstaurant(던스토랑) 프로젝트 소개">
+  <title>Dunstaurant (던스토랑) | 프로젝트 소개</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-dark: #1e3a8a;
+      --line: #e2e8f0;
+      --surface: #ffffff;
+      --background: #f1f5f9;
+      --radius: 18px;
+      --shadow: 0 12px 32px rgba(15, 23, 42, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: linear-gradient(135deg, #eef2f5 0%, #dbe3eb 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+      line-height: 1.7;
+    }
+    a { color: var(--blue); }
+    img { display: block; max-width: 100%; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid rgba(226, 232, 240, .9);
+      background: rgba(255, 255, 255, .9);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-inner {
+      width: min(1080px, calc(100% - 36px));
+      min-height: 66px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .brand { color: var(--blue-dark); font-weight: 800; text-decoration: none; letter-spacing: -.03em; }
+    .nav-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .nav-links a {
+      padding: 7px 12px;
+      border: 1px solid #dbeafe;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: .88rem;
+      font-weight: 650;
+      text-decoration: none;
+    }
+    .nav-links a:hover, .nav-links a:focus-visible { background: var(--blue); color: #fff; }
+
+    main { width: min(1080px, calc(100% - 36px)); margin: 36px auto 72px; }
+    .hero {
+      overflow: hidden;
+      border-radius: 24px;
+      background: #111827;
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .hero-video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #0f172a; }
+    .hero-video-wrapper iframe, .video-frame iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .hero-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 26px 32px;
+    }
+    .eyebrow { margin: 0 0 5px; color: #93c5fd; font-size: .85rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.2; letter-spacing: -.045em; }
+    .hero-copy { margin: 8px 0 0; color: #cbd5e1; }
+    .download-link {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 48px;
+      padding: 11px 19px;
+      border-radius: 12px;
+      background: #3b82f6;
+      color: #fff;
+      font-weight: 750;
+      text-decoration: none;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, .32);
+    }
+    .download-link:hover { background: #1d4ed8; }
+
+    .intro-panel {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: center;
+      margin: 24px 0 34px;
+      padding: 28px 32px;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius);
+      background: linear-gradient(120deg, #eff6ff, #fff 72%);
+      box-shadow: 0 8px 22px rgba(37, 99, 235, .06);
+    }
+    .intro-panel h2 { margin: 0 0 8px; color: var(--blue-dark); font-size: 1.45rem; }
+    .intro-panel p { margin: 0; color: #334155; }
+    .intro-badge { color: #3b82f6; font-size: 2.7rem; }
+
+    .section {
+      margin-top: 28px;
+      padding: clamp(22px, 4vw, 38px);
+      border: 1px solid rgba(226, 232, 240, .9);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .section-heading { display: flex; align-items: center; gap: 12px; margin: 0 0 22px; font-size: 1.55rem; letter-spacing: -.03em; }
+    .section-heading::before { content: ""; width: 5px; height: 27px; border-radius: 9px; background: linear-gradient(#60a5fa, #2563eb); }
+    .section p { color: #475569; }
+    .objective {
+      padding: 18px 20px;
+      border-left: 4px solid #3b82f6;
+      border-radius: 8px;
+      background: #eff6ff;
+      color: #1e3a8a !important;
+      font-weight: 650;
+    }
+    .media-link { display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+    .media-link img { width: 100%; height: auto; transition: transform .25s ease; }
+    .media-link:hover img { transform: scale(1.015); }
+    .video-card { max-width: 760px; margin: auto; }
+    .video-frame { overflow: hidden; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; background: #0f172a; }
+    .media-caption { margin: 9px 0 0; color: var(--muted); font-size: .9rem; text-align: center; }
+
+    .team-intro { margin: -8px 0 18px; color: var(--muted); }
+    .team-list { display: grid; gap: 12px; }
+    details.team-card { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+    details.team-card[open] { border-color: #bfdbfe; background: #fff; }
+    .team-card summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      color: #1e293b;
+      font-weight: 750;
+      cursor: pointer;
+      list-style: none;
+    }
+    .team-card summary::-webkit-details-marker { display: none; }
+    .team-card summary::after { content: "+"; color: var(--blue); font-size: 1.4rem; line-height: 1; }
+    .team-card[open] summary::after { content: "−"; }
+    .team-content { padding: 0 20px 18px; border-top: 1px solid #f1f5f9; }
+    .team-content ul { margin: 14px 0; padding-left: 22px; color: #475569; }
+    .troubleshooting {
+      margin: 18px 0;
+      padding: 18px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f1f5f9;
+    }
+    .troubleshooting h3 { margin: 0 0 12px; color: #1e3a8a; font-size: 1.05rem; }
+    .troubleshooting-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #334155;
+    }
+    .troubleshooting-table th, .troubleshooting-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      vertical-align: top;
+    }
+    .troubleshooting-table thead th { background: #e2e8f0; color: #1e3a8a; font-weight: 750; }
+    .troubleshooting-table tbody th { width: 84px; background: #f8fafc; color: #1e40af; white-space: nowrap; }
+    .troubleshooting-table tbody tr:last-child th, .troubleshooting-table tbody tr:last-child td { border-bottom: 0; }
+    .troubleshooting h4 { margin: 0 0 10px; color: #334155; font-size: .95rem; }
+    .troubleshooting pre {
+      overflow-x: auto;
+      margin: 0;
+      padding: 16px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font: .85rem/1.65 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      white-space: pre;
+    }
+    details.highlighted-member {
+      margin-top: 0;
+      border: 2px solid #f59e0b;
+      background: #fffbeb;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, .16);
+    }
+    details.highlighted-member > summary {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    details.highlighted-member[open] { border-color: #d97706; }
+    details.highlighted-member .team-content { border-top-color: #fde68a; }
+    .github-link { font-weight: 700; text-decoration: none; }
+    .github-link:hover { text-decoration: underline; }
+    footer { padding: 28px 12px 0; color: #64748b; font-size: .9rem; text-align: center; }
+
+    @media (max-width: 680px) {
+      .topbar-inner { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; padding: 10px 0; }
+      .nav-links { justify-content: flex-start; gap: 5px; }
+      .nav-links a { padding: 5px 9px; font-size: .78rem; }
+      main { margin-top: 20px; }
+      .hero-content { align-items: flex-start; flex-direction: column; padding: 22px; }
+      .download-link { width: 100%; }
+      .intro-panel { grid-template-columns: 1fr; padding: 22px; }
+      .intro-badge { display: none; }
+      .troubleshooting-table th, .troubleshooting-table td { padding: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top">🍽️ Dunstaurant</a>
+      <nav class="nav-links" aria-label="페이지 목차">
+        <a href="#goal">프로젝트 목표</a>
+        <a href="#flow">게임 흐름</a>
+        <a href="#trailer">시연 영상</a>
+        <a href="#brochure">Preview</a>
+        <a href="#team">팀원 및 역할</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-video-wrapper">
+        <iframe src="https://www.youtube-nocookie.com/embed/zynmhNI1JBg" title="Dunstaurant 트레일러 영상" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      </div>
+      <div class="hero-content">
+        <div>
+          <p class="eyebrow">Dungeon × Restaurant</p>
+          <h1 id="page-title">던전에서 식재료를 구해<br>식당을 운영하라!</h1>
+          <p class="hero-copy">던전 탐험과 식당 경영이 결합된 하이브리드 장르 게임</p>
+        </div>
+        <a class="download-link" href="https://drive.google.com/file/d/1j5m93WEwPretgy8io5T_n-XIz-M0K8jw/view?usp=sharing" target="_blank" rel="noopener noreferrer">⬇ 게임 다운로드</a>
+      </div>
+    </section>
+
+    <section class="intro-panel" aria-label="게임 소개">
+      <div>
+        <h2>Dunstaurant(던스토랑)</h2>
+        <p><strong>요리사 겸 모험가</strong>가 되어 무작위로 생성되는 던전을 탐험하고 식재료를 모으세요. 수집한 재료로 식당을 성장시키고, 새로운 손님을 맞이하며 나만의 식당을 확장할 수 있습니다. 플레이할 때마다 달라지는 던전 구조와 적, 아이템 속에서 다양한 빌드와 전략을 경험해 보세요.</p>
+        <p><a class="github-link" href="https://github.com/NBcampUnrealTrack/2nd-Team1-Final-Project" target="_blank" rel="noopener noreferrer">프로젝트 GitHub ↗</a></p>
+      </div>
+      <span class="intro-badge" aria-hidden="true">⚔️</span>
+    </section>
+
+    <section class="section" id="goal">
+      <h2 class="section-heading">프로젝트 목표</h2>
+      <p class="objective">타이쿤과 전투 시스템이 결합된 던전 로그라이크 게임을 팀 협업을 통해 구현하는 것을 목표로 하였습니다.</p>
+    </section>
+
+    <section class="section" id="flow">
+      <h2 class="section-heading">게임 흐름</h2>
+      <a class="media-link" href="gameflow.png" target="_blank" rel="noopener noreferrer">
+        <img src="gameflow.png" alt="던전 탐험과 식당 운영으로 이어지는 게임 흐름">
+      </a>
+    </section>
+
+    <section class="section" id="trailer">
+      <h2 class="section-heading">시연 영상</h2>
+      <div class="video-card">
+        <div class="video-frame">
+          <iframe src="https://www.youtube-nocookie.com/embed/xqjJGslHHrg" title="Dunstaurant 게임 시연 영상" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </div>
+        <p class="media-caption">페이지에서 바로 시연 영상을 재생할 수 있습니다.</p>
+      </div>
+    </section>
+
+    <section class="section" id="brochure">
+      <h2 class="section-heading">Preview</h2>
+      <img src="preview.png" alt="Dunstaurant 프로젝트 Preview">
+    </section>
+
+    <section class="section" id="team">
+      <h2 class="section-heading">팀원 및 역할</h2>
+      <p class="team-intro">팀원 이름을 누르면 세부 담당 역할과 GitHub 링크를 확인할 수 있습니다.</p>
+      <div class="team-list">
+        <details class="team-card">
+          <summary>김선국 — 리더, 전체적인 개발 및 총괄</summary>
+          <div class="team-content">
+            <ul><li>레벨 흐름</li><li>플레이어 캐릭터</li><li>유물 및 무기</li><li>인벤토리</li><li>게임 내 오브젝트와 상호작용</li><li>던전 및 거점</li><li>전반적인 UI</li></ul>
+            <a class="github-link" href="https://github.com/SeonBab" target="_blank" rel="noopener noreferrer">김선국 GitHub ↗</a>
+          </div>
+        </details>
+        <details class="team-card">
+          <summary>김영웅 — 서브 리더, 타이쿤</summary>
+          <div class="team-content"><ul><li>타이쿤 게임 모드와 UI</li><li>타이쿤 타일맵 및 타일 시스템</li><li>타이쿤 NPC</li></ul><a class="github-link" href="https://github.com/balamwind" target="_blank" rel="noopener noreferrer">김영웅 GitHub ↗</a></div>
+        </details>
+        <details class="team-card highlighted-member">
+          <summary>김영빈 — 몬스터 AI</summary>
+          <div class="team-content">
+            <ul><li>Behavior Tree 기반 보스, 일반 몬스터 행동 방식 구현</li><li>AI Controller 사용, 몬스터 자율 행동</li><li>GitHub 형상 관리 총괄</li></ul>
+            <section class="troubleshooting" aria-labelledby="troubleshooting-title">
+              <h3 id="troubleshooting-title">트러블 슈팅</h3>
+              <table class="troubleshooting-table">
+                <thead>
+                  <tr><th scope="col">구분</th><th scope="col">내용</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">원인</th><td>전투 중에 몬스터가 공격받았다는 반응이 없어 난이도가 어려웠다.</td></tr>
+                  <tr><th scope="row">과정</th><td>강인도 시스템을 도입해서 상황에 따라 공격에 대한 반응을 구현했다.</td></tr>
+                  <tr><th scope="row">결과</th><td>난이도 조절을 할 수 있어 재미를 더했다.</td></tr>
+                </tbody>
+              </table>
+              <h4>관련 코드</h4>
+              <pre><code>Source/RogShop/Character/RSDunMonsterCharacter.cpp
+
+...
+
+ARSDunMonsterCharacter::ARSDunMonsterCharacter()
+{
+	/* 강인도 시스템 구현 설명 */
+	bIsPlayingAnim = false;
+	// 다른 행동을 하는 중에 피해를 받은 경우 경직이 발생하지 않는 슈퍼 아머 구현
+
+	bIsInterruptable = true;
+	// true인 상태에서 피해를 받은 경우 경직 상호작용 발생
+
+	interruptResistance = 0.f;
+	// 강인도 수치, 몬스터마다 다른 값을 가짐
+	// 0 이하인 경우 bIsInterruptable = true로 설정
+}
+...</code></pre>
+            </section>
+            <a class="github-link" href="https://github.com/EBSiNoah" target="_blank" rel="noopener noreferrer">김영빈 GitHub ↗</a>
+          </div>
+        </details>
+        <details class="team-card">
+          <summary>강동인 — 던전 게임 모드 및 맵 생성</summary>
+          <div class="team-content"><ul><li>던전 맵 생성기</li><li>스폰 매니저</li><li>던전 게임 모드</li><li>미니맵</li><li>플레이어 발소리</li></ul><a class="github-link" href="https://github.com/dongin03008" target="_blank" rel="noopener noreferrer">강동인 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>김승길 — 던전 상점 및 가이드</summary>
+          <div class="team-content"><ul><li>던전 상점 위젯</li><li>가이드 위젯</li><li>로그 제어 시스템</li><li>각종 사운드 연결</li></ul><a class="github-link" href="https://github.com/F1ANK76" target="_blank" rel="noopener noreferrer">김승길 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>박선우 — 아트 기획 및 UI 디자인</summary>
+          <div class="team-content"><ul><li>던전 및 메뉴 UI</li><li>아트 기획 및 UI 디자인</li><li>각종 사운드 적용</li></ul><a class="github-link" href="https://github.com/seonu1126" target="_blank" rel="noopener noreferrer">박선우 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>박영민 — 몬스터 전투 및 애니메이션</summary>
+          <div class="team-content"><ul><li>몬스터 이동, 공격, 피격, 죽음 애니메이션</li><li>게임 흐름 설명 UI</li><li>몬스터 체력바 UI (디자인 제외)</li><li>몬스터 발소리 및 데미지 표시 UI</li><li>몬스터 AI와 관련 이펙트는 제외</li><li>README 전체적인 구조와 내용 작성</li></ul><a class="github-link" href="https://github.com/yeong132" target="_blank" rel="noopener noreferrer">박영민 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>서승우 — 아트·디자인 총괄 및 에셋 제작</summary>
+          <div class="team-content"><ul><li>아트 기획 및 에셋 선정</li><li>레벨 디자인</li><li>UI 디자인</li><li>이펙트, 에셋, 머티리얼 제작</li></ul><a class="github-link" href="https://github.com/hallowoo" target="_blank" rel="noopener noreferrer">서승우 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>송민준 — 기획 및 QA</summary>
+          <div class="team-content"><ul><li>에셋 선정</li><li>QA</li><li>기획</li></ul><a class="github-link" href="https://github.com/ss0ngg" target="_blank" rel="noopener noreferrer">송민준 GitHub ↗</a></div>
+        </details>
+        <details class="team-card">
+          <summary>이종민 — 기획 및 QA</summary>
+          <div class="team-content"><ul><li>에셋 선정</li><li>QA</li><li>기획</li></ul><a class="github-link" href="https://github.com/jmin0922" target="_blank" rel="noopener noreferrer">이종민 GitHub ↗</a></div>
+        </details>
+      </div>
+    </section>
+
+    <footer>던전 탐험과 식당 경영의 만남, Dunstaurant(던스토랑)</footer>
+  </main>
+</body>
+</html>
