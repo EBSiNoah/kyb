@@ -64,6 +64,33 @@
       gap: 8px;
     }
 
+    .credential-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .credential-entry {
+      display: flex;
+      width: 230px;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px;
+      border: 2px solid #000;
+      background: #fff;
+    }
+
+    .credential-entry__label {
+      font: 700 14px/1.2 sans-serif;
+    }
+
+    .credential-entry__number {
+      margin: 0;
+      overflow-wrap: anywhere;
+      color: #333;
+      font: 14px/1.4 sans-serif;
+    }
+
     .file-button {
       display: flex;
       width: 230px;
@@ -224,12 +251,29 @@
         font-size: 13px;
       }
 
-      .button-group__buttons {
+      .button-group__buttons,
+      .credential-list {
         gap: 6px;
       }
 
+      .credential-entry,
       .file-button {
         width: min(230px, calc(100vw - 40px));
+      }
+
+      .credential-entry {
+        padding: 7px;
+      }
+
+      .credential-entry__label {
+        font-size: 13px;
+      }
+
+      .credential-entry__number {
+        font-size: 13px;
+      }
+
+      .file-button {
         height: 58px;
       }
 
@@ -249,6 +293,21 @@
       <div class="button-list">
         <section class="button-group" aria-labelledby="certificationHeading">
           <h2 class="button-group__title" id="certificationHeading">자격증</h2>
+          <div class="credential-list">
+            <!-- 실제 인증 번호가 아직 제공되지 않아 안내 문구를 둡니다. 이 HTML의 안내 문구를 실제 번호로 직접 바꾸세요. -->
+            <div class="credential-entry">
+              <span class="credential-entry__label">정보처리기사</span>
+              <p class="credential-entry__number">cert</p>
+            </div>
+            <div class="credential-entry">
+              <span class="credential-entry__label">정보보안기사</span>
+              <p class="credential-entry__number">cert</p>
+            </div>
+            <div class="credential-entry">
+              <span class="credential-entry__label">SQLD</span>
+              <p class="credential-entry__number">cert</p>
+            </div>
+          </div>
           <div class="button-group__buttons">
             <button class="file-button" type="button"
                     data-file="pcce_certification.pdf" aria-label="PCCE 자격증 PDF 열기"
