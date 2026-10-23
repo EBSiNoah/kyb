@@ -139,6 +139,67 @@
       color: #1e3a8a !important;
       font-weight: 650;
     }
+    .technology-intro { margin: -8px 0 20px; color: var(--muted); }
+    .technology-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .technology-card {
+      padding: 22px;
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #f8fbff, #eff6ff);
+    }
+    .technology-card--engine {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      border-color: #bfdbfe;
+      background: linear-gradient(110deg, #172554, #1e40af);
+      color: #fff;
+    }
+    .engine-mark {
+      flex: 0 0 76px;
+      display: grid;
+      overflow: hidden;
+      width: 76px;
+      height: 76px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, .35);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+      font-size: 1.45rem;
+      font-weight: 850;
+      letter-spacing: -.08em;
+    }
+    .engine-mark__image { width: 100%; height: 100%; padding: 8px; object-fit: contain; }
+    .engine-mark__fallback { display: none; }
+    .engine-mark__fallback.is-visible { display: grid; }
+    .technology-card h3 { margin: 0 0 7px; color: #1e3a8a; font-size: 1.08rem; }
+    .technology-card p { margin: 0; color: #475569; }
+    .technology-card--engine h3 { color: #fff; font-size: 1.25rem; }
+    .technology-card--engine p { color: #dbeafe; }
+    .technology-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .technology-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 4px 11px;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      background: #fff;
+      color: #1e40af;
+      font-size: .85rem;
+      font-weight: 700;
+    }
+    .technology-card--engine .technology-tag {
+      border-color: rgba(255, 255, 255, .35);
+      background: rgba(255, 255, 255, .12);
+      color: #fff;
+    }
     .media-link { display: block; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
     .media-link img { width: 100%; height: auto; transition: transform .25s ease; }
     .media-link:hover img { transform: scale(1.015); }
@@ -228,6 +289,9 @@
       .download-link { width: 100%; }
       .intro-panel { grid-template-columns: 1fr; padding: 22px; }
       .intro-badge { display: none; }
+      .technology-grid { grid-template-columns: 1fr; }
+      .technology-card--engine { grid-column: auto; align-items: flex-start; }
+      .engine-mark { flex-basis: 60px; width: 60px; height: 60px; border-radius: 14px; }
       .troubleshooting-table th, .troubleshooting-table td { padding: 10px; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -242,6 +306,7 @@
       <a class="brand" href="#top">🍽️ Dunstaurant</a>
       <nav class="nav-links" aria-label="페이지 목차">
         <a href="#goal">프로젝트 목표</a>
+        <a href="#tools">사용 도구 및 기술</a>
         <a href="#flow">게임 흐름</a>
         <a href="#trailer">시연 영상</a>
         <a href="#brochure">Preview</a>
@@ -277,6 +342,36 @@
     <section class="section" id="goal">
       <h2 class="section-heading">프로젝트 목표</h2>
       <p class="objective">타이쿤과 전투 시스템이 결합된 던전 로그라이크 게임을 팀 협업을 통해 구현하는 것을 목표로 하였습니다.</p>
+    </section>
+
+    <section class="section" id="tools">
+      <h2 class="section-heading">사용 도구 및 기술</h2>
+      <p class="technology-intro">Unreal Engine을 중심으로 게임플레이 구현과 팀 협업에 사용한 도구 및 기술입니다.</p>
+      <div class="technology-grid">
+        <article class="technology-card technology-card--engine">
+          <span class="engine-mark" aria-hidden="true">
+            <img class="engine-mark__image" src="unreal-engine.png" alt="">
+            <span class="engine-mark__fallback">UE</span>
+          </span>
+          <div>
+            <h3>Unreal Engine</h3>
+            <p>던전 탐험과 식당 경영을 결합한 3D 게임 프로젝트의 핵심 개발 엔진</p>
+            <div class="technology-tags" aria-label="Unreal Engine 관련 기술">
+              <span class="technology-tag">C++</span>
+              <span class="technology-tag">AI Controller</span>
+              <span class="technology-tag">Behavior Tree</span>
+            </div>
+          </div>
+        </article>
+        <article class="technology-card">
+          <h3>몬스터 AI</h3>
+          <p>Behavior Tree와 AI Controller를 활용해 보스 및 일반 몬스터의 자율 행동을 구현했습니다.</p>
+        </article>
+        <article class="technology-card">
+          <h3>협업 및 형상 관리</h3>
+          <p>GitHub를 이용해 프로젝트 코드를 공유하고 팀 개발 내용을 관리했습니다.</p>
+        </article>
+      </div>
     </section>
 
     <section class="section" id="flow">
@@ -388,5 +483,12 @@ ARSDunMonsterCharacter::ARSDunMonsterCharacter()
 
     <footer>던전 탐험과 식당 경영의 만남, Dunstaurant(던스토랑)</footer>
   </main>
+  <script>
+    const engineImage = document.querySelector(".engine-mark__image");
+    engineImage.addEventListener("error", () => {
+      engineImage.hidden = true;
+      engineImage.nextElementSibling.classList.add("is-visible");
+    });
+  </script>
 </body>
 </html>
