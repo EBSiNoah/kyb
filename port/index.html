@@ -166,17 +166,51 @@
     }
 
     .identity-card__name {
-      margin: 0 0 12px;
-      font-size: clamp(26px, 4vw, 42px);
-      line-height: 1.1;
-      letter-spacing: -.05em;
+      margin: 0 0 10px;
+      font-size: clamp(25px, 3.2vw, 38px);
+      line-height: 1.25;
+      letter-spacing: -.045em;
     }
 
     .identity-card__description {
+      max-width: 720px;
       margin: 0;
       color: #52616e;
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.75;
+    }
+
+    .identity-card__values {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 22px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .identity-card__value {
+      min-width: 0;
+      padding: 14px 15px;
+      border: 1px solid #e4e9ed;
+      border-radius: 12px;
+      background: rgba(244, 247, 249, .8);
+    }
+
+    .identity-card__value-title {
+      display: block;
+      margin-bottom: 6px;
+      color: #294b62;
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.4;
+    }
+
+    .identity-card__value-description {
+      margin: 0;
+      color: #657380;
+      font-size: 11px;
+      line-height: 1.65;
     }
 
     .identity-card__contact {
@@ -494,6 +528,15 @@
       .page-header { align-items: flex-start; flex-direction: column; gap: 8px; }
       .identity-card { padding: 22px 18px; border-radius: 18px; }
       .identity-card__body { grid-template-columns: minmax(0, 1fr) minmax(110px, 30%); gap: 16px; }
+      .identity-card__values { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+      .identity-card__value {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr);
+        align-items: baseline;
+        column-gap: 10px;
+        padding: 10px 12px;
+      }
+      .identity-card__value-title { margin: 0; }
       .identity-card__contact { grid-template-columns: 1fr; gap: 10px; }
       .credential-list, .file-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .file-list--project { grid-template-columns: minmax(0, 1fr); }
@@ -504,7 +547,11 @@
       .identity-card__header { align-items: flex-start; }
       .identity-card__type { text-align: right; }
       .identity-card__body { grid-template-columns: minmax(0, 1fr) 98px; gap: 12px; }
+      .identity-card__name { font-size: 24px; }
       .identity-card__description { font-size: 13px; }
+      .identity-card__value { grid-template-columns: 82px minmax(0, 1fr); column-gap: 7px; padding: 9px 10px; }
+      .identity-card__value-title { font-size: 12px; }
+      .identity-card__value-description { font-size: 10px; }
       .identity-card__photo { border-radius: 9px; font-size: 11px; }
       .credential-list, .education-list, .file-list { grid-template-columns: minmax(0, 1fr); }
       .file-item.is-open { grid-column: 1; }
@@ -540,12 +587,22 @@
         <div class="identity-card__information">
           <div class="identity-card__intro">
             <p class="identity-card__label">ABOUT ME</p>
-            <h2 class="identity-card__name">열정적이고 도전적인 사람</h2>
-            <p class="identity-card__description">한계에 막혀도 멈추지 않겠습니다.</p>
-            <h2 class="identity-card__name">배움을 멈추지 않고 창의적인 사람</h2>
-            <p class="identity-card__description">현재에 만족하지 않겠습니다.</p>
-            <h2 class="identity-card__name">동료와 잘 협력 하는 사람</h2>
-            <p class="identity-card__description">성실하고 배려하는 삶을 추구합니다.</p>
+            <h2 class="identity-card__name">배움과 도전으로 성장하며, 동료와 함께 나아갑니다</h2>
+            <p class="identity-card__description">새로운 목표를 향해 꾸준히 배우고 도전하며, 서로를 배려하는 협업으로 더 나은 결과를 만들어가고 싶습니다.</p>
+            <ul class="identity-card__values" aria-label="나의 강점">
+              <li class="identity-card__value">
+                <span class="identity-card__value-title">도전과 열정</span>
+                <p class="identity-card__value-description">익숙한 방식에 머무르지 않고 목표를 향해 꾸준히 나아갑니다.</p>
+              </li>
+              <li class="identity-card__value">
+                <span class="identity-card__value-title">꾸준한 배움</span>
+                <p class="identity-card__value-description">배움을 이어가며 더 나은 방법과 창의적인 해결책을 찾습니다.</p>
+              </li>
+              <li class="identity-card__value">
+                <span class="identity-card__value-title">협업과 배려</span>
+                <p class="identity-card__value-description">성실하게 소통하고 서로를 배려하며 함께 성장합니다.</p>
+              </li>
+            </ul>
           </div>
           <div class="identity-card__contact" aria-label="연락처">
             <div class="identity-card__contact-item">
@@ -562,7 +619,7 @@
             </div>
           </div>
         </div>
-        <div class="identity-card__photo" role="img" aria-label="프로필 사진을 넣을 공간">          
+        <div class="identity-card__photo" role="img" aria-label="프로필 사진을 넣을 공간">
           <img src="Profile.jpg" alt="프로필 사진">
           <!-- 사진을 추가하려면 아래 span을 지우고, index.html과 같은 폴더의 파일명을 넣으세요.
           <span>프로필 사진<br>352 × 472</span>
