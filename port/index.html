@@ -19,9 +19,7 @@
       --accent: #244d69;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html {
       min-width: 320px;
@@ -33,14 +31,10 @@
       min-width: 320px;
       min-height: 100vh;
       margin: 0;
-      background:
-        radial-gradient(ellipse at 8% 0%, rgba(255, 255, 255, .95), transparent 34rem),
-        #e8edf2;
+      background: radial-gradient(ellipse at 8% 0%, rgba(255, 255, 255, .95), transparent 34rem), #e8edf2;
     }
 
-    button {
-      font: inherit;
-    }
+    button { font: inherit; }
 
     .page-shell {
       width: 100%;
@@ -161,9 +155,7 @@
       padding: 3px 0;
     }
 
-    .identity-card__intro {
-      max-width: 900px;
-    }
+    .identity-card__intro { max-width: 900px; }
 
     .identity-card__label {
       margin: 0 0 10px;
@@ -195,9 +187,7 @@
       border-top: 1px solid var(--line);
     }
 
-    .identity-card__contact-item {
-      min-width: 0;
-    }
+    .identity-card__contact-item { min-width: 0; }
 
     .identity-card__contact-label {
       display: block;
@@ -298,6 +288,104 @@
       line-height: 1.5;
     }
 
+    .education-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .education-entry {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid #e0e6eb;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .education-entry.is-open {
+      grid-column: 1 / -1;
+      border-color: #91a9b9;
+      box-shadow: 0 10px 28px rgba(31, 52, 70, .08);
+    }
+
+    .education-entry__label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font: 700 10px/1.2 sans-serif;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .education-entry__name {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 750;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+    }
+
+    .education-entry__toggle {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .education-entry__toggle:focus-visible {
+      outline: 3px solid #527a94;
+      outline-offset: 4px;
+      border-radius: 3px;
+    }
+
+    .education-entry__action {
+      flex: 0 0 auto;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .education-entry__details[hidden] { display: none; }
+
+    .education-entry__details {
+      margin-top: 16px;
+      padding-top: 15px;
+      border-top: 1px solid var(--line);
+    }
+
+    .education-entry__description {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .education-topic-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .education-topic-list li {
+      padding: 7px 11px;
+      border: 1px solid #d8e2e8;
+      border-radius: 999px;
+      background: #f3f7f9;
+      color: #294b62;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
     .file-list {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -305,9 +393,7 @@
       gap: 12px;
     }
 
-    .file-list--project {
-      grid-template-columns: minmax(0, 1fr);
-    }
+    .file-list--project { grid-template-columns: minmax(0, 1fr); }
 
     .file-item {
       min-width: 0;
@@ -341,9 +427,7 @@
 
     .file-button:hover,
     .file-button:focus-visible,
-    .file-item.is-open .file-button {
-      background: #f1f6f8;
-    }
+    .file-item.is-open .file-button { background: #f1f6f8; }
 
     .file-button:focus-visible {
       position: relative;
@@ -365,13 +449,8 @@
       font-weight: 700;
     }
 
-    .file-item.is-open .file-button__action::first-letter {
-      content: "▼";
-    }
-
-    .file-panel[hidden] {
-      display: none;
-    }
+    .file-item.is-open .file-button__action::first-letter { content: "▼"; }
+    .file-panel[hidden] { display: none; }
 
     .file-panel {
       padding: 0 12px 12px;
@@ -398,87 +477,29 @@
     }
 
     @media (max-width: 760px) {
-      .page-shell {
-        padding: 18px 14px;
-      }
-
-      .page-header {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .identity-card {
-        padding: 22px 18px;
-        border-radius: 18px;
-      }
-
-      .identity-card__body {
-        grid-template-columns: minmax(0, 1fr) minmax(110px, 30%);
-        gap: 16px;
-      }
-
-      .identity-card__contact {
-        grid-template-columns: 1fr;
-        gap: 10px;
-      }
-
-      .credential-list,
-      .file-list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .file-list--project {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .file-item.is-open {
-        grid-column: 1 / -1;
-      }
+      .page-shell { padding: 18px 14px; }
+      .page-header { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .identity-card { padding: 22px 18px; border-radius: 18px; }
+      .identity-card__body { grid-template-columns: minmax(0, 1fr) minmax(110px, 30%); gap: 16px; }
+      .identity-card__contact { grid-template-columns: 1fr; gap: 10px; }
+      .credential-list, .file-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .file-list--project { grid-template-columns: minmax(0, 1fr); }
+      .file-item.is-open { grid-column: 1 / -1; }
     }
 
     @media (max-width: 480px) {
-      .identity-card__header {
-        align-items: flex-start;
-      }
-
-      .identity-card__type {
-        text-align: right;
-      }
-
-      .identity-card__body {
-        grid-template-columns: minmax(0, 1fr) 98px;
-        gap: 12px;
-      }
-
-      .identity-card__description {
-        font-size: 13px;
-      }
-
-      .identity-card__photo {
-        border-radius: 9px;
-        font-size: 11px;
-      }
-
-      .credential-list,
-      .file-list {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .file-item.is-open {
-        grid-column: 1;
-      }
-
-      .file-panel__frame {
-        height: 68vh;
-        min-height: 340px;
-      }
+      .identity-card__header { align-items: flex-start; }
+      .identity-card__type { text-align: right; }
+      .identity-card__body { grid-template-columns: minmax(0, 1fr) 98px; gap: 12px; }
+      .identity-card__description { font-size: 13px; }
+      .identity-card__photo { border-radius: 9px; font-size: 11px; }
+      .credential-list, .education-list, .file-list { grid-template-columns: minmax(0, 1fr); }
+      .file-item.is-open { grid-column: 1; }
+      .file-panel__frame { height: 68vh; min-height: 340px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
+      *, *::before, *::after {
         scroll-behavior: auto !important;
         transition-duration: .01ms !important;
       }
@@ -589,9 +610,54 @@
       </div>
     </section>
 
+    <section class="content-section" aria-labelledby="educationHeading">
+      <h2 class="content-section__heading" id="educationHeading">
+        <span class="content-section__index">02</span> Curriculum
+      </h2>
+      <div class="content-section__surface">
+        <div class="education-list" aria-label="교육 이수 과정">
+          <article class="education-entry">
+            <span class="education-entry__label">EDUCATION</span>
+            <button class="education-entry__toggle" type="button"
+                    aria-expanded="false" aria-controls="education-nbc-details">
+              <h3 class="education-entry__name">내일배움캠프 Unreal Engine 2기</h3>
+              <span class="education-entry__action">▶ 펼쳐보기</span>
+            </button>
+            <div class="education-entry__details" id="education-nbc-details" hidden>
+              <p class="education-entry__description">Subjects</p>
+              <ul class="education-topic-list" aria-label="내일배움캠프 교육 내용">
+                <li>C++</li>
+                <li>Unreal Engine</li>
+                <li>GitHub</li>
+                <li>알고리즘</li>
+                <li>자료구조</li>
+              </ul>
+            </div>
+          </article>
+          <article class="education-entry">
+            <span class="education-entry__label">EDUCATION</span>
+            <button class="education-entry__toggle" type="button"
+                    aria-expanded="false" aria-controls="education-aleph-details">
+              <h3 class="education-entry__name">K-New Deal SKT Aleph</h3>
+              <span class="education-entry__action">▶ 펼쳐보기</span>
+            </button>
+            <div class="education-entry__details" id="education-aleph-details" hidden>
+              <p class="education-entry__description">Subjects</p>
+              <ul class="education-topic-list" aria-label="K-New Deal SKT Aleph 교육 내용">
+                <li>Linux</li>
+                <li>네트워크</li>
+                <li>OWASP 취약점</li>
+                <li>XDR</li>
+              </ul>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section class="content-section" aria-labelledby="projectHeading">
       <h2 class="content-section__heading" id="projectHeading">
-        <span class="content-section__index">02</span> Projects
+        <span class="content-section__index">03</span> Projects
       </h2>
       <div class="content-section__surface">
         <div class="file-list file-list--project" aria-label="프로젝트 자료">
@@ -634,7 +700,6 @@
         const isAlreadyOpen = button.getAttribute("aria-expanded") === "true";
 
         document.querySelectorAll(".file-item.is-open").forEach(closeFileItem);
-
         if (isAlreadyOpen) return;
 
         const filePath = button.dataset.file;
@@ -646,6 +711,20 @@
         panel.hidden = false;
         button.setAttribute("aria-expanded", "true");
         button.querySelector(".file-button__action").textContent = "▼ 접기";
+      });
+    });
+
+    document.querySelectorAll(".education-entry__toggle").forEach((button) => {
+      button.addEventListener("click", () => {
+        const entry = button.closest(".education-entry");
+        const details = document.getElementById(button.getAttribute("aria-controls"));
+        const isExpanded = button.getAttribute("aria-expanded") === "true";
+
+        button.setAttribute("aria-expanded", String(!isExpanded));
+        details.hidden = isExpanded;
+        entry.classList.toggle("is-open", !isExpanded);
+        button.querySelector(".education-entry__action").textContent =
+          isExpanded ? "▶ 펼쳐보기" : "▼ 접기";
       });
     });
   </script>
