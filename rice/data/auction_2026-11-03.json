@@ -1,0 +1,9 @@
+[
+  {
+    "status": 1,
+    "stored_value": "840.53",
+    "source_time": "2026-11-03",
+    "delay_ms": 858,
+    "source_url": "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
+  }
+]
